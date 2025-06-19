@@ -90,7 +90,7 @@ end
 function draw_flame()
     for i=1,5 do
         local fx = lander.x + rnd(2) - 1  -- center under feet
-        local fy = lander.y + rnd(3)  -4   -- just below bottom
+        local fy = lander.y + rnd(5)  -4   -- just below bottom
         pset(fx, fy, rnd({8, 9, 10}))     -- fire colors
     end
 end
