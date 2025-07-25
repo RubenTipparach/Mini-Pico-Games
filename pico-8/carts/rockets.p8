@@ -11,9 +11,9 @@ dry_mass_per_part = 1
 
 -- rocket parts: bottom to top
 rocket = {
-  {type="engine", thrust=.2, fuel=60, active=true},
-  {type="fuel", fuel=400},
-  {type="engine", thrust=.3, fuel=80, active=false},
+  {type="engine", thrust=.05, fuel=300, active=true},
+  {type="fuel", fuel=20},
+  {type="engine", thrust=.1, fuel=400, active=false},
 }
 
 particles = {}
