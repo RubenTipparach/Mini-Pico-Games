@@ -1,0 +1,625 @@
+picotron cartridge // www.picotron.net
+version 2
+
+:: gfx/
+:: gfx/0.gfx
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA2LTA1IDAxOjMxOjI0Iixtb2RpZmllZD0iMjAyNS0w
+Ni0wNSAwODoyMjowMyIscmV2aXNpb249MzcxXV1sejQAfgAAABIxAADzIXtbMF09e2JtcD1weHUA
+QyAQEATwVgcQB8AX0BfABxAH8FYsZmxhZ3M9MCxwYW5feAgAy3k9MCx6b29tPTh9LD4AH-AxAP--
+-------------------------------------------------------------9dQbT04fX0=
+:: gfx/.info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA2LTA1IDA0OjUwOjM4Iixtb2RpZmllZD0iMjAyNS0w
+Ni0wNSAwODoyMjowMyJdXQ==
+:: map/
+:: map/0.map
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA2LTA1IDAxOjMxOjI0Iixtb2RpZmllZD0iMjAyNS0w
+Ni0wNSAwODoyMjowMyIscmV2aXNpb249MzY4XV1sejQAaAAAAFgQAADwCHt7Ym1wPXVzZXJkYXRh
+KCJpMTYiLDMyAwAvIjABAP--------------------vxCCIpLGhpZGRlbj1mYWxzZSxwYW5feD0w
+CADSeT0wLHRpbGVfaD0xNgoAEHcKAIB6b29tPTF9fQ==
+:: map/.info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA2LTA1IDA0OjUwOjM4Iixtb2RpZmllZD0iMjAyNS0w
+Ni0wNSAwODoyMjowMyJdXQ==
+:: sfx/
+:: sfx/0.sfx
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA2LTA1IDAxOjMxOjI0Iixtb2RpZmllZD0iMjAyNS0w
+Ni0wNSAwODoyMjowMyIscmV2aXNpb249MzY5XV1sejQAoAAAAAsKAAD-MHB4dQADKAAABAAED0AQ
+Ag4AAaABIAKgDgAPEAAN8MoBAgNADw_QBAUGB0AMkAgJCgtADJAPDA8NDw4MQAzw-wEA6-8nqgEQ
+Bg8gEAEgASAB8AACEAIOEAEgDyEgATAPQPDDDygP--DGD-gKD-8PgA-3Dw0B8AkBEAYOMAD-----
+-70f-wEArM-ID0AADxBA--_w8P8BAP-qUP----8p
+:: sfx/.info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA2LTA1IDA0OjUwOjM4Iixtb2RpZmllZD0iMjAyNS0w
+Ni0wNSAwODoyMjowMyJdXQ==
+:: label.qoi
+b64$cW9pZgAAAeAAAAEOBAH9-f39-eP_Ka3--f3I-gAAAP39-f394Ar9-co1-f39-f3eCv39zDXV
+-sLDxzX9-f39-cQK-f3ONf39-f392wr9-c81-f39-f3ZCv390TX9-f39-dcK-f3TNf39-f391Qr9
+-dU1-f39-f3UCv391jX9-f39-dIK-f3YNf39-f390Ar9-do1-f39-eo7NeAK-f3bNdv_--HoNf39
+-f3tCv393TX9-f39-cwK-f3eNf39-f39ygr9-eA1-f39-f3JCv394TX9-f3IOzX9_gr9-eM1-f39
+-f3GCv395DX9-f39-cUK-f3lNf39-f39wwr9-ec1-f39-f3CCv396DX95j81-f391gr9-ek1-f39
+-f0K-f3rNf39-f38Cv397DX9-f39_wr9-e01-f39-fkK-f3vNf39-f34Cv398DX9-f399wr9-fE1
+-fH_X1dPNf39-cIK-f3yNf39-f31Cv398zX4PzX9-f33Cv399DX9-f398wr9-fU1-f39-fEK-f33
+Nf396-7-AE01-f3CCv39_DX9-f397wr9-fk1-f3FOzX9-eYK-f36Nf39-f3jDTXHCv39_zX9-Ts1
+-f3qCv39-DX9-f396wr9-f01-f39-eoK-f39wDX9-f396Qr9-f3BNdU-Nf39-f3QCv39-cI1-f3e
+DTXNPzX99Ar9-f3DNfIuNf39-e8K-f39xDX9-f395Qr9-f3FNf39-f3kCv39-cY16js1-f399Qr9
+-f3GNf39-f3jCv39-cc1-f39-eD_HStTNQr9-f3INf39-f3fKD8oCv39-cg1-f39-d8oP8AoCv39
+-cc1-f39-d8oP8EoCv39-cY1-f39-d4KKD-CKAr9-f3FNf39-f3dCsAoP8AowAr9-f3GNf39-f3d
+CsEowD8oCv39-cY1-f39-dwK-f39zjX9-dUuNf39wwr9-f3PNf39-f3aCv39-dA1-f39-doK-f39
+0DX9-f392Qr9-f3RNe4-Nf39-eUK-f390jX9-f391wr9-f3TNf39-f3XCv39-dM1xzs1-f39-cwK
+-f391DX9-f3yDTXeCv39-dU1-cY7Nf39-csK-f391jX9-f391Ar9-f3WNf39-f3TCv39-dc1-f39
+-dIK-f392DX9-fwuNf3RCv39-dg1-f39-dEK-f392TX9-f390Ar9-f3aNf39-f3QCv39-do1-f39
+-c8K-f392zX9-f39zgr9-f3cNf39-f3OCv39-dw1-f39-c0K-f393TX91Ts1-f3zCv39-d01-f39
+-cwK-f393jX9-f39ywr9-f3fNf39-f3LCv39-d81-f39-coK-f394DXHLjX9-f39wAr9-f3gNf39
+yjs1-foK-f394TXeDTX9wTs1-f3iCv39-eE1-f39-cgK-f394jX9-f39xwr9-f3jNf39-f3HCv39
+-eM1-f39-cYK-f395DX9-f39xgr9-f3kNf39-f3FCv39-eU1-f39-cUK-f395TX9-f39xAr9-f3m
+Nf39-f3ECv39-eY1-f39-cMK-f395zXnPzX9-f3XCv39-ec1-f39-cIK-f396DX9-f39wgr9-f3o
+Nf39-cY7NfcK-f396DX9-f39wQr9-f3pNf39-f0-NQr9-f3pNf39-f3ACv39-eo1-f39-cAK-f39
+6jXHPzX9-f3zCv39-es1-f39-Qr9-f3rNf39-f0K-f396zX9-f38Cv39-ew1-f39-Ar9-f3sNf39
+-fsK-f397TX9-cguNf3wCv39-e01-f39_wr9-f3tNf39-foK-f397jX9-f36Cv39-e41-f39_gr9
+-f3uNf392y41-dsK-f397zX9-f35Cv39-e81-f39_Qr9-f3vNf39-fgK-f398DX94js1-f3TCv39
+-fA1-f39_Ar9-f3wNf39-fcK-f398TX9-f33Cv39-fE1-f399wr9-f3xNf39-fYK-f398jX9-f32
+Cv39-fI1-f399gr9-f3yNf39-fUK-f398zX9-f31Cv39-fM1-f390z813wr9-f3zNf39-fUK-f39
+8zX9-f30Cv39-fQ1-f391T813Ar9-f30Nf396z81-D-ANcQK-f399DX9-f3uP8E1wQr9-f30Nf39
+-fE-wgr9-f3zNf39-fMKwD-BCv39-fA1-f397js1wgrDPzsK-f397jX9-f3zCv39-fU1-f398gr9
+-f32Nf39-fIK-f399jX9-f3yCv39-fY1-f398gr9-f32Nf39-fIK-f399jX9-f3xCv39-fc1-f39
+8Qr9-f33Nf39-fEK-f399zX9-f3xCv39-fc1-f3ROzX93Qr9-f33Nf39-fEK-f399zX92T81-f3U
+Cv39-fg1-f398Ar9-f34Nf39-fAK-f39_DX9-f3wCv39-fg1-f398Ar9-f34Nf39-fAK-f39_DX9
+-f3wCv39-fg1-f397wr9-f35Nf39-e8K-f39_TX9-f3vCv39-fk1-f397wr9-f35Nf39-e8K-f39
+_TX9-f3vCv39-fk1-f3GOzX95gr9-f35Nf397w01_wr9-f35Nf39-dY7NdYK-f39_TX9-f3vCv39
+-fk1-f397gr9-f36Nf39-e4K-f39_jX9-f3uCv39-fo1-dY7Nf391Qr9-f36Nf39-e4K-f39_jX9
+-f3uCv39-fo1-f397gr9-f36Nf39-e4K-f39_jX91Ds1-f3XCv39-fo1-f397gr9-f36Nf396i41
+-cEK-f39_jX9-f3uCv39-fo1-f397gr9-f36Nf39-e4K-f39_jX9-f3uCv39-fo1-f397gr9-f36
+Nf39-e4K-f39_jX9-f3uCv39-fo1-f397gr9-f36Nf39zz81-dwK-f39_jX9-f3OLjXdCv39-fo1
+-f397gr9-f36Nf39-e4K-f39_jX9-f3uCv39-fo1-f397gr9-f36Nf39-eg-NcMK-f39_jX9-f3u
+Cv39-fo1-f3kLjX9xwr9-f36Nf38LjX97Qr9-f36Nf39-e8K-f39_TX9-f3vCv39-fk1-f397wr9
+-f35Nf39-e8K-f39_TX9-f3vCv39-fk1xC41-f396Ar9-f35Nf39-e8K-f39_TX9-f3vCv39-fk1
+-f397wr9-f35Nf39-e8K-f39_TX9-f3wCv39-fg1-f398Ar9-f34Nf39-fAK-f39_DX9-f3wCv39
+-fg1-f398Ar9-f34Nf39-fAK-f39_DX9-f3wCv39-fg1-f398Qr9-f33Nf39-fEK-f399zX9-f3x
+Cv39-fc1-f398Qr9-f33Nf39-fEK-f399zX9-f3xCv39-fc1-fE-Nf38Cv39-fY1-f398gr9-f32
+Nf397T81-cIK-f399jX94i41-f3NCv39-fY1-c8uNf39zj81zwr9-f32Nf39-fMK-f399TX4OzX9
+-fYK-f399TX9-f3zCv39-fU1-f398wr9-f31Nf3SLjX9-d8K-f399DX9-f30Cv39-fQ1-f399Ar9
+-f30Nf39-fQK-f399DX9-f31Cv39-fM1-f399Qr9-f3zNf39-fUK-f398zXNLjX9-f3lCv39-fM1
+-f3kOzXODTX8Cv39-fI1-f399gr9-f3yNf395A01-c8K-f398jX9-f33Cv39-fE1-f399wr9-f3x
+Nf392C41-dwK-f398TX9-f34Cv39-fA1-f39_Ar9-f3wNf3UPzX9-eEK-f398DX9-f35Cv39-e81
+-f39_Qr9-f3vNf39-fkK-f397zX9-f36Cv39-e41-f39_gr9-f3uNf395zs1-dAK-f397jX9-f37
+Cv39-e01-f39_wr9-f3tNf39-fsK-f397TX9-f38Cv39-ew1-f39-Ar9-f3sNf39-f0K-f396zX9
+1zs1-f3dOzXDCv39-es1-f39-Qr9-f3rNf39-f3ACv39-eo1-f39-cAK-f396jX9-f39wQr9-f3p
+Nf39-f3BCv39-ek1-f39-cIK-f396DX9-f39wgr9-f3oNf3mLjX9-dcK-f396DX9-f39wwr9-f3n
+Nf39-f3DCv39-ec1-f39-cQK-f395jX9-f39xAr9-f3mNf39-f3FCv39-eUAAAAAAAAAAQ==
+:: main.lua
+--[[pod_format="raw",created="2025-06-05 01:31:24",modified="2025-06-05 08:22:03",revision=543]]
+-- loads in external modules and classes
+function require(name)
+   if _modules == nil then
+   		_modules={}
+   	end
+
+	local already_imported = _modules[name]
+	if already_imported ~= nil then
+		return already_imported
+	end
+
+	local filename = fullpath(name..'.lua')
+	local src = fetch(filename)	
+
+	if (type(src) ~= "string") then 
+		notify("could not include "..filename)
+		stop()
+		return
+	end	
+
+	-- https://www.lua.org/manual/5.4/manual.html#pdf-load
+	-- chunk name (for error reporting), mode ("t" for text only -- no binary chunk loading), _ENV upvalue
+	-- @ is a special character that tells debugger the string is a filename
+	local func,err = load(src, "@"..filename, "t", _ENV)
+	-- syntax error while loading
+	if (not func) then 
+		send_message(3, {event="report_error", content = "*syntax error"})
+		send_message(3, {event="report_error", content = tostr(err)})
+
+		stop()
+		return
+	end
+
+	local module = func()
+	_modules[name]=module
+
+	return module
+end
+
+
+
+
+-- fullscreen space shooter with parallax starfield
+local minimap = require("minimap") -- will load and execute module.lua
+local ship = require("ship")
+local trajectory = require("trajectory")
+
+
+-- screen resolution
+sw = 480
+sh = 270
+
+
+-- parallax star layers
+star_layers = {
+    {count=60, speed=0.2, color=5, stars={}},
+    {count=40, speed=0.5, color=6, stars={}},
+    {count=20, speed=1.0, color=7, stars={}}
+}
+
+gravity_factor = 5
+pi  = 3.1415926535898
+tau = 2.0 * pi
+ship_rotation_speed = 0.01
+
+
+planets = {
+  {
+    x = 0, y = 1000,
+    r = 70,
+    g = 0.5,
+    gravity_range = 600,
+    col = 13,
+     seed = 42 -- different seed per planet
+  },
+  {
+    x = -600, y = -300,
+    r = 60,
+    g = 0.7,
+    gravity_range = 500,
+    col = 11,
+     seed = 42 -- different seed per planet
+  },
+    
+  {
+    x = 0, y = 100,
+    r = 80,
+    g = 1.0,
+    gravity_range = 700,
+    col = 12,
+     seed = 42 -- different seed per planet
+  }
+
+  
+}
+
+
+-- deterministic 2D value noise
+function hash(x, y, seed)
+  local v = sin(x * 12.9898 + y * 78.233 + seed * 43758.5453) * 43758.5453
+  return v - flr(v)
+end
+
+function lerp(a, b, t)
+  return a + (b - a) * t
+end
+
+function fade(t)
+  -- smootherstep curve
+  return t * t * t * (t * (t * 6 - 15) + 10)
+end
+
+function noise(x, y, seed)
+  seed = seed or 0
+
+  local xi = flr(x)
+  local yi = flr(y)
+  local xf = x - xi
+  local yf = y - yi
+
+  -- fade curve for smooth interpolation
+  local u = fade(xf)
+  local v = fade(yf)
+
+  -- hash corners
+  local a  = hash(xi, yi,     seed)
+  local b  = hash(xi+1, yi,   seed)
+  local c  = hash(xi, yi+1,   seed)
+  local d  = hash(xi+1, yi+1, seed)
+
+  -- interpolate
+  local ab = lerp(a, b, u)
+  local cd = lerp(c, d, u)
+  return lerp(ab, cd, v)
+end
+
+-- Main game Loop
+function _init()
+    for layer in all(star_layers) do
+        for i=1, layer.count do
+            add(layer.stars, {
+                x = rnd(4000) - 2000,
+                y = rnd(4000) - 2000,
+                c = layer.color + flr(rnd(2)) -- vary brightness
+            })
+        end
+    end
+    
+   -- set up planet textures 
+   for p in all(planets) do
+	  local r = p.r
+	  p.surface =generate_planet_texture(p) --new_surface(r * 2 + 2, r * 2 + 2)
+	end
+end
+
+function _update()
+     ship.update(planets)
+end
+
+function _draw()
+    cls()
+    -- draw planets
+    local cam_x = ship.x - sw / 2
+    local cam_y = ship.y - sh / 2
+    
+    -- draw stars
+    for layer in all(star_layers) do
+        for star in all(layer.stars) do
+            local sx = (star.x - cam_x * layer.speed)
+            local sy = (star.y - cam_y * layer.speed)
+            local px = flr(sx) % sw
+            local py = flr(sy) % sh
+            pset(px, py, star.c)
+        end
+    end
+    
+   -- compute trajectory
+   
+	local path = trajectory.predict_path(ship, planets, 250, 50, planetModule)
+	for pt in all(path) do
+	  local sx = (pt.x - ship.x) + 480/2
+	  local sy = (pt.y - ship.y) + 270/2
+	  pset(sx, sy, 13)
+	end
+	
+	
+    -- draw ship at center
+	local cam_x = ship.x - sw/2
+	local cam_y = ship.y - sh/2
+	--[[
+    for p in all(planets) do
+        local px = (p.x - cam_x)
+        local py = (p.y - cam_y)
+        circfill(px, py, p.r, p.col)
+    end
+    ]]
+	    
+	   
+for p in all(planets) do
+  local screen_x = p.x - cam_x
+  local screen_y = p.y - cam_y
+  local r = p.r
+
+  if screen_x + r > 0 and screen_x - r < sw and
+     screen_y + r > 0 and screen_y - r < sh then
+    draw_planet(p, cam_x, cam_y, t())
+  end
+end
+    -- draw triangle
+    ship.draw()
+    
+	minimap.draw(ship, planets, path)
+end
+
+function draw_planet(p, cam_x, cam_y, time)
+  local r = p.r
+  local cx = p.x - cam_x
+  local cy = p.y - cam_y
+  local img = p.image
+
+  for j = 1, #img do
+    local row = img[j]
+    local y = j - ceil(#img / 2)
+
+    for i = 1, #row.pixels do
+      local x = row.x0 + (i - 1)
+      local px = cx + x
+      local py = cy + y
+      pset(px, py, row.pixels[i])
+    end
+  end
+
+  -- optional clouds
+  --[[
+  local angle = time * 0.01 + p.seed
+  for i=0, 2 do
+    local cr = r - i*3
+    local ox = cos(angle + i) * cr * 0.3
+    local oy = sin(angle + i) * cr * 0.3
+    circ(cx + ox, cy + oy, cr, 7)
+  end
+  ]]
+end
+
+
+
+function generate_planet_texture(p)
+  local r = p.r
+  p.image = {} -- list of rows
+
+  for j = -r, r do
+    local row = {x0 = nil, pixels = {}}
+    for i = -r, r do
+      local dx = i
+      local dy = j
+      local dist2 = dx*dx + dy*dy
+
+      if dist2 <= r*r then
+        local nx = dx / r
+        local ny = dy / r
+        local n = noise(nx * 3 + p.seed, ny * 3 + p.seed)
+
+        local color
+        if n < 0.45 then
+          color = 1 -- ocean
+        elseif n < 0.55 then
+          color = 11 -- sand
+        elseif n < 0.7 then
+          color = 3 -- grass
+        else
+          color = 6 -- mountain
+        end
+
+        if row.x0 == nil then row.x0 = i end -- mark where the row starts
+        add(row.pixels, color)
+      end
+    end
+    if #row.pixels > 0 then
+      add(p.image, row)
+    end
+  end
+end
+
+
+:: minimap.lua
+--[[pod_format="raw",created="2025-06-05 03:12:16",modified="2025-06-05 08:22:03",revision=308]]
+-- minimap.lua
+
+local minimap = {
+  x = 480 - 100,
+  y = 270 - 68,
+  w = 96,
+  h = 64,
+  scale = 0.04
+}
+
+function minimap.draw(ship, planets, path)
+  -- background
+  rectfill(minimap.x, minimap.y, minimap.x + minimap.w, minimap.y + minimap.h, 1)
+  rect(minimap.x, minimap.y, minimap.x + minimap.w, minimap.y + minimap.h, 5)
+
+  -- center = ship
+  local cx = minimap.x + minimap.w / 2
+  local cy = minimap.y + minimap.h / 2
+
+  -- draw trajectory path
+  if path then
+    local last = nil
+    for pt in all(path) do
+      local dx = (pt.x - ship.x) * minimap.scale
+      local dy = (pt.y - ship.y) * minimap.scale
+      local px = cx + dx
+      local py = cy + dy
+      if last then
+        line(last.x, last.y, px, py, 13)
+      end
+      last = {x=px, y=py}
+    end
+  end
+
+  -- draw planets
+  for p in all(planets) do
+    local dx = (p.x - ship.x) * minimap.scale
+    local dy = (p.y - ship.y) * minimap.scale
+    local px = cx + dx
+    local py = cy + dy
+    local pr = max(1, p.r * minimap.scale)
+    circfill(px, py, pr, p.col)
+  end
+
+  -- draw ship
+  pset(cx, cy, 7)
+end
+
+
+return minimap
+:: planet.lua
+--[[pod_format="raw",created="2025-06-05 04:44:02",modified="2025-06-05 08:22:03",revision=157]]
+-- planet.lua
+
+local G = 0.01 -- gameplay gravity constant
+
+local planet = {}
+
+function planet.compute_accel(x, y, planets)
+  local ax, ay = 0, 0
+
+  for p in all(planets) do
+    local dx = p.x - x
+    local dy = p.y - y
+    local dist2 = dx*dx + dy*dy
+    local dist = sqrt(dist2)
+
+    if dist > p.r and dist < p.r + (p.gravity_range or 500) then
+      local surface_dist = dist - p.r
+      local force = G * p.mass / (surface_dist * surface_dist)
+      local nx = dx / dist
+      local ny = dy / dist
+      ax += nx * force
+      ay += ny * force
+    end
+  end
+
+  return ax, ay
+end
+
+return planet
+:: ship.lua
+b64$LS1bW3BvZF9mb3JtYXQ9InJhdyIsY3JlYXRlZD0iMjAyNS0wNi0wNSAwMzozMDoyNyIsbW9k
+aWZpZWQ9IjIwMjUtMDYtMDUgMDg6MjI6MDMiLHJldmlzaW9uPTMyM11dCi0tIHNoaXAubHVhCgps
+b2NhbCBzaGlwID0gewogIHggPSAwLAogIHkgPSAwLAogIGR4ID0gMCwKICBkeSA9IDAsCiAgYW5n
+bGUgPSAwLAogIHNwZWVkID0gMC4wMSwKICByb3RhdGlvbl9zcGVlZCA9IC4wMSwKLS0gc2hpcCBz
+dGF0cyBsb2wKICBkcnlfbWFzcyA9IDIwMCwgICAgICAgIC0tIGtnCiAgZnVlbF9tYXNzID0gNTAw
+LCAgICAgICAtLSBrZwogIGZ1ZWxfYnVybl9yYXRlID0gMC41LCAgLS0ga2cgcGVyIGZyYW1lIG9m
+IHRocnVzdAogIHRocnVzdF9wb3dlciA9IDAuNSwgICAtLSBhY2NlbGVyYXRpb24gIAogZXhoYXVz
+dF92ZWxvY2l0eSA9IDMwMDAsIC0tIG0vcyAodHlwaWNhbCBmb3IgY2hlbWljYWwgZW5naW5lcykK
+CiAgc2hhcGUgPSB7CiAgICB7IHggPSAgOCwgeSA9ICAwIH0sICAtLSBub3NlIChyaWdodCkKICAg
+IHsgeCA9IC02LCB5ID0gLTUgfSwgIC0tIHJlYXIgbGVmdAogICAgeyB4ID0gLTYsIHkgPSAgNSB9
+ICAgLS0gcmVhciByaWdodAogIH0KfQpmdW5jdGlvbiB0cmFuc2Zvcm1fc2hhcGUoc2hhcGUsIGFu
+Z2xlLCBjeCwgY3kpCiAgbG9jYWwgcmVzdWx0ID0ge30KICBmb3IgcHQgaW4gYWxsKHNoYXBlKSBk
+bwogICAgbG9jYWwgY29zX2EgPSBjb3MoYW5nbGUpCiAgICBsb2NhbCBzaW5fYSA9IHNpbihhbmds
+ZSkKICAgIGxvY2FsIHJ4ID0gcHQueCAqIGNvc19hIC0gcHQueSAqIHNpbl9hCiAgICBsb2NhbCBy
+eSA9IHB0LnggKiBzaW5fYSArIHB0LnkgKiBjb3NfYQogICAgYWRkKHJlc3VsdCwgeyB4ID0gcngg
+KyBjeCwgeSA9IHJ5ICsgY3kgfSkKICBlbmQKICByZXR1cm4gcmVzdWx0CmVuZAotLSBncmF2aXRh
+dGlvbmFsIGNvbnN0YW50IHBlciBwbGFuZXQgaXMgZXhwZWN0ZWQgYXMgcC5nCmxvY2FsIGZ1bmN0
+aW9uIGFwcGx5X2dyYXZpdHkocGxhbmV0cykKICBmb3IgcCBpbiBhbGwocGxhbmV0cykgZG8KICAg
+IGxvY2FsIGR4ID0gcC54IC0gc2hpcC54CiAgICBsb2NhbCBkeSA9IHAueSAtIHNoaXAueQogICAg
+bG9jYWwgZGlzdDIgPSBkeCpkeCArIGR5KmR5CiAgICBpZiBkaXN0MiA_IDEgdGhlbgogICAgICBs
+b2NhbCBkaXN0ID0gc3FydChkaXN0MikKICAgICAgbG9jYWwgZm9yY2UgPSBwLmcgLyBkaXN0Mgog
+ICAgICBsb2NhbCBueCA9IGR4IC8gZGlzdAogICAgICBsb2NhbCBueSA9IGR5IC8gZGlzdAogICAg
+ICBzaGlwLmR4ICs9IG54ICogZm9yY2UKICAgICAgc2hpcC5keSArPSBueSAqIGZvcmNlCiAgICBl
+bmQKICBlbmQKZW5kCgotLSBncmF2aXRhdGlvbmFsIGNvbnN0YW50IHBlciBwbGFuZXQgaXMgZXhw
+ZWN0ZWQgYXMgcC5nCmxvY2FsIGZ1bmN0aW9uIGFwcGx5X2dyYXZpdHkocGxhbmV0cykKICBmb3Ig
+cCBpbiBhbGwocGxhbmV0cykgZG8KICAgIGxvY2FsIGR4ID0gcC54IC0gc2hpcC54CiAgICBsb2Nh
+bCBkeSA9IHAueSAtIHNoaXAueQogICAgbG9jYWwgZGlzdDIgPSBkeCpkeCArIGR5KmR5CiAgICBp
+ZiBkaXN0MiA_IDEgdGhlbgogICAgICBsb2NhbCBkaXN0ID0gc3FydChkaXN0MikKICAgICAgbG9j
+YWwgZm9yY2UgPSBwLmcgLyBkaXN0MgogICAgICBsb2NhbCBueCA9IGR4IC8gZGlzdAogICAgICBs
+b2NhbCBueSA9IGR5IC8gZGlzdAogICAgICBzaGlwLmR4ICs9IG54ICogZm9yY2UKICAgICAgc2hp
+cC5keSArPSBueSAqIGZvcmNlCiAgICBlbmQKICBlbmQKZW5kCgotLSBzdG9wIHRoZSBzaGlwIGZy
+b20gcGFzc2luZyB0aHJvdWdoIGEgcGxhbmV0CmxvY2FsIGZ1bmN0aW9uIHJlc29sdmVfY29sbGlz
+aW9uKHBsYW5ldHMpCiAgZm9yIHAgaW4gYWxsKHBsYW5ldHMpIGRvCiAgICBsb2NhbCBkeCA9IHNo
+aXAueCAtIHAueAogICAgbG9jYWwgZHkgPSBzaGlwLnkgLSBwLnkKICAgIGxvY2FsIGRpc3QgPSBz
+cXJ0KGR4KmR4ICsgZHkqZHkpCiAgICBpZiBkaXN0IDwgcC5yIHRoZW4KICAgICAgbG9jYWwgbngg
+PSBkeCAvIGRpc3QKICAgICAgbG9jYWwgbnkgPSBkeSAvIGRpc3QKCiAgICAgIC0tIHB1c2ggb3V0
+IG9mIHN1cmZhY2UKICAgICAgc2hpcC54ID0gcC54ICsgbnggKiBwLnIKICAgICAgc2hpcC55ID0g
+cC55ICsgbnkgKiBwLnIKCiAgICAgIC0tIHJlZmxlY3QgYW5kIGRhbXBlbiB2ZWxvY2l0eQogICAg
+ICBsb2NhbCBkb3QgPSBzaGlwLmR4ICogbnggKyBzaGlwLmR5ICogbnkKICAgICAgc2hpcC5keCAt
+PSBkb3QgKiBueAogICAgICBzaGlwLmR5IC09IGRvdCAqIG55CiAgICAgIHNoaXAuZHggKj0gMC41
+CiAgICAgIHNoaXAuZHkgKj0gMC41CiAgICBlbmQKICBlbmQKZW5kCgoKZnVuY3Rpb24gc2hpcC51
+cGRhdGUocGxhbmV0cykKICBpZiBidG4oMCkgdGhlbiBzaGlwLmFuZ2xlIC09IHNoaXAucm90YXRp
+b25fc3BlZWQgZW5kCiAgaWYgYnRuKDEpIHRoZW4gc2hpcC5hbmdsZSArPSBzaGlwLnJvdGF0aW9u
+X3NwZWVkIGVuZAoKCWlmIGJ0big0KSBhbmQgc2hpcC5mdWVsX21hc3MgPiAwIHRoZW4KCSAgbG9j
+YWwgbWFzcyA9IHNoaXAuZHJ5X21hc3MgKyBzaGlwLmZ1ZWxfbWFzcwoJICBsb2NhbCB0aHJ1c3Qg
+PSBzaGlwLnRocnVzdF9wb3dlciAvIG1hc3MKCSAgc2hpcC5keCArPSBjb3Moc2hpcC5hbmdsZSkg
+KiB0aHJ1c3QKCSAgc2hpcC5keSArPSBzaW4oc2hpcC5hbmdsZSkgKiB0aHJ1c3QKCSAgc2hpcC5m
+dWVsX21hc3MgPSBtYXgoMCwgc2hpcC5mdWVsX21hc3MgLSBzaGlwLmZ1ZWxfYnVybl9yYXRlKQoJ
+ZW5kCgogIC0tIGdyYXZpdHkKICBhcHBseV9ncmF2aXR5KHBsYW5ldHMpCgogIC0tIG1vdmVtZW50
+CiAgc2hpcC54ICs9IHNoaXAuZHgKICBzaGlwLnkgKz0gc2hpcC5keQoKICAtLSBjb2xsaXNpb24g
+cmVzb2x1dGlvbgogIHJlc29sdmVfY29sbGlzaW9uKHBsYW5ldHMpCgoKLS0gIHNoaXAuZHggKj0g
+MC45OQotLSAgc2hpcC5keSAqPSAwLjk5CmVuZAoKZnVuY3Rpb24gc2hpcC5kcmF3KCkKICBsb2Nh
+bCBjeCwgY3kgPSA0ODAvMiwgMjcwLzIKCiAgLS0gdHJhbnNmb3JtIHNoYXBlCiAgbG9jYWwgcHRz
+ID0gdHJhbnNmb3JtX3NoYXBlKHNoaXAuc2hhcGUsIHNoaXAuYW5nbGUsIGN4LCBjeSkKCiAgLS0g
+ZHJhdyBzaGlwIHRyaWFuZ2xlCiAgbGluZShwdHNbMV0ueCwgcHRzWzFdLnksIHB0c1syXS54LCBw
+dHNbMl0ueSwgNykKICBsaW5lKHB0c1syXS54LCBwdHNbMl0ueSwgcHRzWzNdLngsIHB0c1szXS55
+LCA2KQogIGxpbmUocHRzWzNdLngsIHB0c1szXS55LCBwdHNbMV0ueCwgcHRzWzFdLnksIDcpCgog
+IC0tIGRyYXcgdGhydXN0IGZsYW1lCiAgaWYgYnRuKDQpIHRoZW4KICAgIGxvY2FsIHR4ID0gKHB0
+c1syXS54ICsgcHRzWzNdLngpIC8gMgogICAgbG9jYWwgdHkgPSAocHRzWzJdLnkgKyBwdHNbM10u
+eSkgLyAyCiAgICBsb2NhbCBmeCA9IHR4IC0gY29zKHNoaXAuYW5nbGUpICogKDQgKyBybmQoMikp
+CiAgICBsb2NhbCBmeSA9IHR5IC0gc2luKHNoaXAuYW5nbGUpICogKDQgKyBybmQoMikpCiAgICBs
+aW5lKHR4LCB0eSwgZngsIGZ5LCAoezgsIDksIDEwfSlbZmxyKHJuZCgzKSkgKyAxXSkKICBlbmQK
+ICAKICAgLS0gZHJhdyBtYXNzIGFuZCBmdWVsIFVJCiAgbG9jYWwgdG90YWxfbWFzcyA9IHNoaXAu
+ZHJ5X21hc3MgKyBzaGlwLmZ1ZWxfbWFzcwogIHByaW50KCJmdWVsOiAiIC4uIGZscihzaGlwLmZ1
+ZWxfbWFzcykgLi4gIiBrZyIsIDUsIDUsIDcpCiAgcHJpbnQoIm1hc3M6ICIgLi4gZmxyKHRvdGFs
+X21hc3MpIC4uICIga2ciLCA1LCAxMywgNykKICAKICBsb2NhbCBmdWVsX3BlcmNlbnQgPSBzaGlw
+LmZ1ZWxfbWFzcyAvIDUwMAogIHJlY3QoNSwgMjEsIDEwNSwgMjksIDUpCiAgcmVjdGZpbGwoNiwg
+MjIsIDYgKyA5OCAqIGZ1ZWxfcGVyY2VudCwgMjgsIDExKQogIAogLS0gZHJhdyBkZWx0YS12CiAg
+IGxvY2FsIGR2ID0gZmxyKHNoaXAuZ2V0X2RlbHRhdigpKQogIHByaW50KCLOlHY6ICIgLi4gZHYg
+Li4gIiBtL3MiLCA1LCAzMywgNykKZW5kCgpmdW5jdGlvbiBzaGlwLmdldF9kZWx0YXYoKQogIGxv
+Y2FsIG0wID0gc2hpcC5kcnlfbWFzcyArIHNoaXAuZnVlbF9tYXNzCiAgbG9jYWwgbTEgPSBzaGlw
+LmRyeV9tYXNzCiAgaWYgbTAgPD0gbTEgdGhlbiByZXR1cm4gMCBlbmQKICByZXR1cm4gc2hpcC5l
+eGhhdXN0X3ZlbG9jaXR5ICogbWF0aC5sb2cobTAgLyBtMSkKZW5kCgpyZXR1cm4gc2hpcA==
+:: trajectory.lua
+--[[pod_format="raw",created="2025-06-05 03:30:32",modified="2025-06-05 08:22:03",revision=309]]
+-- trajectory.lua
+
+local trajectory = {}
+
+-- gravity force from all planets at (x, y)
+local function compute_accel(x, y, planets)
+  local ax, ay = 0, 0
+  for p in all(planets) do
+    local dx = p.x - x
+    local dy = p.y - y
+    local dist2 = dx*dx + dy*dy
+    if dist2 > 1 then
+      local dist = sqrt(dist2)
+      local force = p.g / dist2
+      local nx = dx / dist
+      local ny = dy / dist
+      ax += nx * force
+      ay += ny * force
+    end
+  end
+  return ax, ay
+end
+
+function trajectory.predict_path(ship, planets, steps, dt)
+  local path = {}
+
+  -- initial state
+  local x, y = ship.x, ship.y
+  local vx, vy = ship.dx, ship.dy
+
+  for i=1,steps do
+    -- RK4 integration
+
+    -- k1: at current position
+    local ax1, ay1 = compute_accel(x, y, planets)
+    local vx1 = vx
+    local vy1 = vy
+
+    -- k2: midpoint
+    local vx2 = vx + ax1 * dt / 2
+    local vy2 = vy + ay1 * dt / 2
+    local x2 = x + vx * dt / 2
+    local y2 = y + vy * dt / 2
+    local ax2, ay2 = compute_accel(x2, y2, planets)
+
+    -- k3: midpoint again
+    local vx3 = vx + ax2 * dt / 2
+    local vy3 = vy + ay2 * dt / 2
+    local x3 = x + vx2 * dt / 2
+    local y3 = y + vy2 * dt / 2
+    local ax3, ay3 = compute_accel(x3, y3, planets)
+
+    -- k4: end
+    local vx4 = vx + ax3 * dt
+    local vy4 = vy + ay3 * dt
+    local x4 = x + vx3 * dt
+    local y4 = y + vy3 * dt
+    local ax4, ay4 = compute_accel(x4, y4, planets)
+
+    -- combine weighted averages
+    vx += dt * (ax1 + 2*ax2 + 2*ax3 + ax4) / 6
+    vy += dt * (ay1 + 2*ay2 + 2*ay3 + ay4) / 6
+    x  += dt * (vx1 + 2*vx2 + 2*vx3 + vx4) / 6
+    y  += dt * (vy1 + 2*vy2 + 2*vy3 + vy4) / 6
+
+    -- record point
+    add(path, {x = x, y = y})
+
+    -- early termination: intersects planet?
+    for p in all(planets) do
+      local dx = x - p.x
+      local dy = y - p.y
+      local dist2 = dx*dx + dy*dy
+      if dist2 < (p.r * p.r) then
+        return path
+      end
+    end
+  end
+
+  return path
+end
+
+return trajectory
+
+:: .info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA2LTA1IDAxOjUzOjI4Iixtb2RpZmllZD0iMjAyNS0w
+Ni0wNSAwODoyMjowMyIscnVudGltZT0xOCx3b3Jrc3BhY2VzPXt7bG9jYXRpb249Im1haW4ubHVh
+IzIwOCIsd29ya3NwYWNlX2luZGV4PTF9LHtsb2NhdGlvbj0ibWluaW1hcC5sdWEjMSIsd29ya3Nw
+YWNlX2luZGV4PTF9LHtsb2NhdGlvbj0ic2hpcC5sdWEjNCIsd29ya3NwYWNlX2luZGV4PTF9LHts
+b2NhdGlvbj0idHJhamVjdG9yeS5sdWEjMSIsd29ya3NwYWNlX2luZGV4PTF9LHtsb2NhdGlvbj0i
+cGxhbmV0Lmx1YSMxIix3b3Jrc3BhY2VfaW5kZXg9MX0se2xvY2F0aW9uPSJnZngvMC5nZngiLHdv
+cmtzcGFjZV9pbmRleD0yfSx7bG9jYXRpb249Im1hcC8wLm1hcCIsd29ya3NwYWNlX2luZGV4PTN9
+LHtsb2NhdGlvbj0ic2Z4LzAuc2Z4Iix3b3Jrc3BhY2VfaW5kZXg9NH19XV0=
+:: [eoc]

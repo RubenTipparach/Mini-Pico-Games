@@ -1,0 +1,155 @@
+picotron cartridge // www.picotron.net
+version 2
+
+:: gfx/
+:: gfx/0.gfx
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA3LTE1IDE4OjQ5OjQyIixtb2RpZmllZD0iMjAyNS0w
+Ny0xNSAxOToxNDoxNCIscmV2aXNpb249MTddXWx6NAB_AAAAEjEAAPMhe1swXT17Ym1wPXB4dQBD
+IBAQBPBWBxAHwBfQF8AHEAfwVixmbGFncz0wLHBhbl94CADLeT0wLHpvb209OH0sPgAf8DEA----
+------------------------------------------------------------11BtPTh9fQ==
+:: gfx/.info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA3LTE1IDE5OjE0OjE1Iixtb2RpZmllZD0iMjAyNS0w
+Ny0xNSAxOToxNDoxNSJdXQ==
+:: map/
+:: map/0.map
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA3LTE1IDE4OjQ5OjQyIixtb2RpZmllZD0iMjAyNS0w
+Ny0xNSAxOToxNDoxNCIscmV2aXNpb249MTddXWx6NABaAAAASxAAAPAIe3tibXA9dXNlcmRhdGEo
+ImkxNiIsMzIDAC8iMAEA--------------------_6EiKSxwYW5feD0wCADSeT0wLHRpbGVfaD0x
+NgoAEHcKAIB6b29tPTF9fQ==
+:: map/.info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA3LTE1IDE5OjE0OjE1Iixtb2RpZmllZD0iMjAyNS0w
+Ny0xNSAxOToxNDoxNSJdXQ==
+:: sfx/
+:: sfx/0.sfx
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA3LTE1IDE4OjQ5OjQyIixtb2RpZmllZD0iMjAyNS0w
+Ny0xNSAxOToxNDoxNCIscmV2aXNpb249MThdXWx6NACgAAAACwoAAP8wcHh1AAMoAAAEAAQPQBAC
+DgABoAEgAqAOAA8QAA3wygECA0APD5AEBQYHQAyQCAkKC0AMkA8MDw0PDgxADPD-AQDr-yeqARAG
+DyAQASABIAHwAAIQAg4QASAPISABMA9A8MMPKA--8MYP_AoP-w_AD-cPDQHwCQEQBg4wAP------
+vR--AQCsz8gPQAAPEED--7Dw-wEA-_pQ-----yk=
+:: sfx/.info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA3LTE1IDE5OjE0OjE1Iixtb2RpZmllZD0iMjAyNS0w
+Ny0xNSAxOToxNDoxNSJdXQ==
+:: main.lua
+--[[pod_format="raw",created="2025-07-15 18:49:42",modified="2025-07-15 19:14:14",revision=31]]
+-- Picotron: Incremental Galaxy Colonization Game
+RES = { energy=100, metal=50, population=10 }
+PROD = { energy=0, metal=0, population=0 }
+TICKS = 0
+mars_colonized = false
+
+buttons = {
+ {
+  label="Build Solar Array",
+  cost={ metal=10 },
+  gain={ energy=1 }
+ },
+ {
+  label="Deploy Mining Drone",
+  cost={ energy=15 },
+  gain={ metal=1 }
+ },
+ {
+  label="Train Colonist",
+  cost={ energy=20, metal=5 },
+  gain={ population=1 }
+ },
+ {
+  label="Launch Mars Ship",
+  cost={ energy=100, metal=100, population=15 },
+  action=function()
+    mars_colonized = true
+  end
+ }
+}
+
+for i,btn in ipairs(buttons) do
+  btn.x, btn.y = 10, 40 + (i-1)*22
+  btn.w, btn.h = 140, 18
+end
+
+function can_afford(cost)
+  for resource,amount in pairs(cost) do
+    if RES[resource] == nil or RES[resource] < amount then 
+      return false
+    end
+  end
+  return true
+end
+
+function pay(cost)
+  for resource,amount in pairs(cost) do
+    RES[resource] -= amount
+  end
+end
+
+function apply_gain(gain)
+  for resource,amount in pairs(gain) do
+    PROD[resource] += amount
+  end
+end
+
+function _init()
+end
+
+function _update()
+  TICKS += 1
+
+  if TICKS % 30 == 0 then
+    for resource, amount in pairs(PROD) do
+      RES[resource] += amount
+    end
+  end
+
+  local mx, my = stat(34), stat(35)
+  local mousedown = (stat(36) & 1) == 1
+
+  if mousedown then
+  	 print("button click")
+    for i,btn in ipairs(buttons) do
+      if mx >= btn.x and mx <= btn.x+btn.w and my >= btn.y and my <= btn.y+btn.h then
+        if can_afford(btn.cost or {}) then
+          pay(btn.cost)
+          if btn.gain then
+            apply_gain(btn.gain)
+          elseif btn.action then
+            btn.action()
+          end
+        end
+      end
+    end
+  end
+end
+
+function draw_resource(label, value, y)
+  print(label..": "..value, 10, y, 7)
+end
+
+function draw_button(btn)
+  local affordable = can_afford(btn.cost or {})
+  local color = affordable and 11 or 5
+  rectfill(btn.x, btn.y, btn.x+btn.w, btn.y+btn.h, color)
+  rect(btn.x, btn.y, btn.x+btn.w, btn.y+btn.h, 1)
+  print(btn.label, btn.x + 4, btn.y + 5, 0)
+end
+
+function _draw()
+  cls(0)
+
+  draw_resource("Energy", RES.energy, 4)
+  draw_resource("Metal", RES.metal, 12)
+  draw_resource("Population", RES.population, 20)
+
+  for i,btn in ipairs(buttons) do
+    draw_button(btn)
+  end
+
+  print("Mars colonized: "..tostr(mars_colonized), 10, 140, 10)
+end
+
+:: .info.pod
+b64$LS1bW3BvZCxjcmVhdGVkPSIyMDI1LTA3LTE1IDE4OjUwOjA0Iixtb2RpZmllZD0iMjAyNS0w
+Ny0xNSAxOToxNDoxNSIscnVudGltZT0xOCx3b3Jrc3BhY2VzPXt7bG9jYXRpb249Im1haW4ubHVh
+Izc0Iix3b3Jrc3BhY2VfaW5kZXg9MX0se2xvY2F0aW9uPSJnZngvMC5nZngiLHdvcmtzcGFjZV9p
+bmRleD0yfSx7bG9jYXRpb249Im1hcC8wLm1hcCIsd29ya3NwYWNlX2luZGV4PTN9LHtsb2NhdGlv
+bj0ic2Z4LzAuc2Z4Iix3b3Jrc3BhY2VfaW5kZXg9NH19XV0=
+:: [eoc]
