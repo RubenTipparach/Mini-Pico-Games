@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starfleet Dialog Encounter</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .console {
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #4a9eff;
+            border-radius: 15px;
+            max-width: 900px;
+            width: 100%;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(74, 158, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .title {
+            text-align: center;
+            color: #4a9eff;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+        }
+
+        .scene-setup {
+            background: rgba(74, 158, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .character {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+            position: relative;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .alex {
+            background: linear-gradient(135deg, rgba(255, 100, 100, 0.15), rgba(255, 150, 150, 0.05));
+            border-left: 4px solid #ff6464;
+        }
+
+        .jordan {
+            background: linear-gradient(135deg, rgba(100, 255, 100, 0.15), rgba(150, 255, 150, 0.05));
+            border-left: 4px solid #64ff64;
+        }
+
+        .character-name {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .alex .character-name {
+            color: #ff9999;
+        }
+
+        .jordan .character-name {
+            color: #99ff99;
+        }
+
+        .choices {
+            margin: 25px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(74, 158, 255, 0.3);
+        }
+
+        .choice {
+            display: block;
+            width: 100%;
+            padding: 15px 20px;
+            margin: 10px 0;
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.2), rgba(74, 158, 255, 0.1));
+            border: 2px solid transparent;
+            border-radius: 8px;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            font-size: 14px;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .choice:hover {
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.4), rgba(74, 158, 255, 0.2));
+            border-color: #4a9eff;
+            box-shadow: 0 0 15px rgba(74, 158, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .choice:active {
+            transform: translateY(0);
+        }
+
+        .choice.weighted {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+
+        .choice.weighted:hover {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 215, 0, 0.2));
+            border-color: #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(74, 158, 255, 0.2);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .tension { color: #ff6464; }
+        .chemistry { color: #ff64ff; }
+        .professionalism { color: #64ff64; }
+        .playfulness { color: #ffff64; }
+
+        .location {
+            text-align: center;
+            color: #4a9eff;
+            font-style: italic;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+
+        .outcome {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1));
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        .restart {
+            background: linear-gradient(135deg, #4a9eff, #2d7dd2);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .restart:hover {
+            background: linear-gradient(135deg, #2d7dd2, #1a5fa8);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 158, 255, 0.4);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+            to { box-shadow: 0 0 30px rgba(255, 215, 0, 0.6); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .mood-indicator {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 20px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="console">
+        <h1 class="title">🚀 STARFLEET ENCOUNTER SIMULATOR 🚀</h1>
+        
+        <div class="scene-setup">
+            <strong>Setting:</strong> Late evening shift aboard the USS Enterprise. Most of the crew is off duty, leaving the corridors dimly lit and peaceful. Two officers find themselves alone...
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Tension</div>
+                <div class="stat-value tension" id="tension">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Chemistry</div>
+                <div class="stat-value chemistry" id="chemistry">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Professionalism</div>
+                <div class="stat-value professionalism" id="professionalism">10</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Playfulness</div>
+                <div class="stat-value playfulness" id="playfulness">5</div>
+            </div>
+        </div>
+
+        <div id="dialog-container">
+            <!-- Dialog will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            tension: 0,
+            chemistry: 0,
+            professionalism: 10,
+            playfulness: 5,
+            currentScene: 'intro',
+            history: [],
+            alexMood: 'neutral',
+            jordanMood: 'neutral'
+        };
+
+        const scenes = {
+            intro: {
+                location: "Deck 7 Corridor - 2247 Hours",
+                alex: {
+                    text: "Well, well... Lieutenant Jordan. Burning the midnight oil again?",
+                    mood: "😏"
+                },
+                jordan: {
+                    text: "Commander Alex! I could ask you the same. Though I suspect your definition of 'work' is more flexible than mine.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "Is that a challenge, Lieutenant? I'd be happy to show you my... work ethic.",
+                        effects: { tension: 2, chemistry: 1, professionalism: -1, playfulness: 2 },
+                        next: 'flirty_response_1'
+                    },
+                    {
+                        text: "Just reviewing some tactical reports. Care to join me? I could use a fresh perspective.",
+                        effects: { professionalism: 1, chemistry: 1 },
+                        next: 'professional_invite'
+                    },
+                    {
+                        text: "Actually, I was just heading to Ten Forward. The night shift deserves a drink, don't you think?",
+                        effects: { playfulness: 2, tension: -1 },
+                        next: 'casual_invite'
+                    },
+                    {
+                        text: "Caught me. I was actually looking for you, Jordan. We need to talk.",
+                        effects: { tension: 3, chemistry: 2, professionalism: -2 },
+                        next: 'direct_approach'
+                    }
+                ]
+            },
+
+            flirty_response_1: {
+                location: "Deck 7 Corridor - Growing Warmer",
+                alex: {
+                    text: "*steps closer* I do appreciate... thoroughness in all endeavors, Commander.",
+                    mood: "😌"
+                },
+                jordan: {
+                    text: "*raises eyebrow* Is that so? And here I thought Starfleet frowned upon... unprofessional conduct.",
+                    mood: "😏"
+                },
+                choices: [
+                    {
+                        text: "Starfleet has many regulations, but they say nothing about appreciating a colleague's... dedication.",
+                        effects: { chemistry: 3, tension: 2, professionalism: -2 },
+                        weight: () => gameState.chemistry > 3 ? 'weighted' : '',
+                        next: 'escalating_tension'
+                    },
+                    {
+                        text: "You're right, of course. Perhaps we should keep things... strictly professional.",
+                        effects: { professionalism: 2, tension: -1, chemistry: -1 },
+                        next: 'professional_retreat'
+                    },
+                    {
+                        text: "Walk with me to the observation deck? The stars are beautiful tonight, and I'd hate to admire them alone.",
+                        effects: { chemistry: 2, playfulness: 1, tension: 1 },
+                        weight: () => gameState.playfulness > 7 ? 'weighted' : '',
+                        next: 'observation_deck'
+                    },
+                    {
+                        text: "*playfully* Well, if we're going to break regulations, we might as well do it properly. Coffee in my quarters?",
+                        effects: { chemistry: 2, playfulness: 3, tension: 2, professionalism: -3 },
+                        weight: () => gameState.tension > 5 && gameState.chemistry > 5 ? 'weighted' : '',
+                        next: 'quarters_invite'
+                    }
+                ]
+            },
+
+            professional_invite: {
+                location: "Commander Alex's Office - 2251 Hours",
+                alex: {
+                    text: "*gestures to chair* Please, have a seat. These Romulan tactical analyses are... intriguing.",
+                    mood: "🤔"
+                },
+                jordan: {
+                    text: "*settles in chair, noticing the dim lighting* Cozy setup for tactical analysis, Commander. Are you always so... atmospheric in your work?",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "I find ambient lighting helps with focus. Though I admit, the company makes it far more pleasant.",
+                        effects: { chemistry: 2, professionalism: 1, playfulness: 1 },
+                        next: 'office_flirtation'
+                    },
+                    {
+                        text: "The lighting system has been malfunctioning. But let's focus on these patrol routes - I value your tactical input.",
+                        effects: { professionalism: 2, tension: -1 },
+                        next: 'pure_professional'
+                    },
+                    {
+                        text: "*moves chair closer* Better view of the data this way. Now, what do you make of their defensive patterns?",
+                        effects: { tension: 2, chemistry: 1, professionalism: 1 },
+                        weight: () => gameState.professionalism > 8 ? 'weighted' : '',
+                        next: 'close_collaboration'
+                    }
+                ]
+            },
+
+            casual_invite: {
+                location: "En Route to Ten Forward",
+                alex: {
+                    text: "*falls into step beside Jordan* You know, I've always wondered what you do to unwind after those long shifts in Engineering.",
+                    mood: "😊"
+                },
+                jordan: {
+                    text: "Usually I'd say 'sleep,' but lately I've been finding it... difficult to switch off. Too much energy, maybe.",
+                    mood: "😌"
+                },
+                choices: [
+                    {
+                        text: "I know the feeling. Sometimes you need the right company to help you... relax.",
+                        effects: { chemistry: 2, tension: 1, playfulness: 1 },
+                        next: 'ten_forward_chemistry'
+                    },
+                    {
+                        text: "Have you tried the holodeck's meditation programs? I could show you my favorite sometime.",
+                        effects: { chemistry: 1, professionalism: 1, playfulness: 2 },
+                        next: 'holodeck_suggestion'
+                    },
+                    {
+                        text: "Well, if we're going to be insomniacs together, we might as well make it interesting. Truth or dare over drinks?",
+                        effects: { playfulness: 3, chemistry: 1, tension: 1, professionalism: -1 },
+                        weight: () => gameState.playfulness > 6 ? 'weighted' : '',
+                        next: 'truth_or_dare'
+                    }
+                ]
+            },
+
+            direct_approach: {
+                location: "Deck 7 Corridor - The Air Grows Thick",
+                alex: {
+                    text: "*voice lowers* I've been thinking about you, Jordan. More than a commanding officer probably should.",
+                    mood: "😳"
+                },
+                jordan: {
+                    text: "*eyes widen, then soften* Alex... I was wondering when you'd finally say something. The tension's been killing me.",
+                    mood: "💕"
+                },
+                choices: [
+                    {
+                        text: "Then you feel it too? This... connection between us?",
+                        effects: { chemistry: 4, tension: 3, professionalism: -2 },
+                        next: 'mutual_confession'
+                    },
+                    {
+                        text: "We should be careful, Jordan. Our careers, the crew... there's so much at stake.",
+                        effects: { tension: 2, professionalism: 2, chemistry: 1 },
+                        next: 'conflicted_feelings'
+                    },
+                    {
+                        text: "*steps closer* Regulations be damned. Life's too short to ignore something this powerful.",
+                        effects: { chemistry: 3, tension: 4, professionalism: -3, playfulness: 1 },
+                        weight: () => gameState.tension > 4 ? 'weighted' : '',
+                        next: 'passionate_moment'
+                    }
+                ]
+            },
+
+            escalating_tension: {
+                location: "Deck 7 Corridor - Electric Atmosphere",
+                alex: {
+                    text: "*voice husky* You know, Jordan, there are many ways to show... appreciation for a fellow officer's skills.",
+                    mood: "😍"
+                },
+                jordan: {
+                    text: "*breath catches* Commander, you're playing with fire. Are you prepared for the consequences?",
+                    mood: "🔥"
+                },
+                choices: [
+                    {
+                        text: "*whispers* I've never been one to back down from a challenge, especially one so... enticing.",
+                        effects: { chemistry: 4, tension: 4, professionalism: -3 },
+                        next: 'point_of_no_return'
+                    },
+                    {
+                        text: "Maybe we should cool down before we do something we'll regret. Professional distance, Jordan.",
+                        effects: { professionalism: 3, tension: -2, chemistry: -1 },
+                        next: 'sudden_retreat'
+                    },
+                    {
+                        text: "Your quarters or mine? This corridor is far too public for what I have in mind.",
+                        effects: { chemistry: 5, tension: 5, professionalism: -4, playfulness: 2 },
+                        weight: () => gameState.chemistry > 8 && gameState.tension > 8 ? 'weighted' : '',
+                        next: 'private_invitation'
+                    }
+                ]
+            },
+
+            // Additional scenes to complete the paths
+            observation_deck: {
+                location: "Observation Deck - Stars Gleaming",
+                alex: {
+                    text: "*gazing at the stars* You know, Jordan, some of the most beautiful things in the universe appear when you least expect them.",
+                    mood: "✨"
+                },
+                jordan: {
+                    text: "*steps closer to the viewport* Are we still talking about stars, Commander? Because I think I see something even more beautiful right here.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "*turns to face Jordan* The universe has a way of bringing people together at just the right moment.",
+                        effects: { chemistry: 3, playfulness: 2, tension: 2 },
+                        next: 'starlight_romance'
+                    },
+                    {
+                        text: "Jordan, I... *reaches out but hesitates* We should be careful about what we're starting here.",
+                        effects: { tension: 3, chemistry: 2, professionalism: 1 },
+                        next: 'hesitant_moment'
+                    }
+                ]
+            },
+
+            quarters_invite: {
+                location: "Outside Alex's Quarters",
+                alex: {
+                    text: "*pauses at the door* Last chance to change your mind, Jordan. Once we cross this threshold...",
+                    mood: "💭"
+                },
+                jordan: {
+                    text: "*steps closer* Some lines are meant to be crossed, Alex. I'm not going anywhere.",
+                    mood: "💕"
+                },
+                choices: [
+                    {
+                        text: "*takes Jordan's hand* Then let's see where this leads us.",
+                        effects: { chemistry: 5, tension: 4, professionalism: -4 },
+                        next: 'intimate_evening'
+                    }
+                ]
+            },
+
+            office_flirtation: {
+                location: "Commander Alex's Office - Growing Intimate",
+                alex: {
+                    text: "*leans back in chair* You know, Jordan, your insights are always... illuminating. In more ways than one.",
+                    mood: "😏"
+                },
+                jordan: {
+                    text: "*smiles* Careful, Commander. Compliments like that might go to my head. Or worse... my heart.",
+                    mood: "💖"
+                },
+                choices: [
+                    {
+                        text: "Would that be such a terrible thing? Your heart, I mean...",
+                        effects: { chemistry: 4, tension: 2, professionalism: -2 },
+                        next: 'heart_confession'
+                    },
+                    {
+                        text: "We should focus on the work, shouldn't we? Even if... other things are more appealing.",
+                        effects: { professionalism: 2, tension: 2, chemistry: 1 },
+                        next: 'work_tension'
+                    }
+                ]
+            },
+
+            ten_forward_chemistry: {
+                location: "Ten Forward - Ambient Lighting",
+                alex: {
+                    text: "*slides into booth across from Jordan* You know, I've been thinking about relaxation techniques. Some require... partnership.",
+                    mood: "😉"
+                },
+                jordan: {
+                    text: "*raises glass* To partnership then. In all its forms.",
+                    mood: "🥂"
+                },
+                choices: [
+                    {
+                        text: "*raises glass* To exploring new frontiers... together.",
+                        effects: { chemistry: 3, playfulness: 2, tension: 2 },
+                        next: 'toast_to_romance'
+                    }
+                ]
+            },
+
+            // Terminal outcome scenes
+            starlight_romance: { next: 'mutual_confession' },
+            hesitant_moment: { next: 'conflicted_feelings' },
+            intimate_evening: { next: 'private_invitation' },
+            heart_confession: { next: 'mutual_confession' },
+            work_tension: { next: 'conflicted_feelings' },
+            toast_to_romance: { next: 'point_of_no_return' },
+            conflicted_feelings: { next: 'conflicted_ending' },
+            passionate_moment: { next: 'point_of_no_return' }
+        };
+
+        const outcomes = {
+            point_of_no_return: {
+                title: "🌟 PASSIONATE ENCOUNTER 🌟",
+                text: "The tension finally breaks as Alex and Jordan give in to their undeniable attraction. Professional boundaries dissolve in a moment of pure chemistry. Their relationship will never be the same, but some things are worth the risk. The stars themselves seem to approve of this cosmic connection.",
+                type: "romantic"
+            },
+            private_invitation: {
+                title: "🔥 STEAMY RESOLUTION 🔥",
+                text: "Unable to resist any longer, the two officers find themselves behind closed doors where words give way to actions. The universe has a way of bringing together those meant to be, even aboard a starship light-years from Earth. Tomorrow will bring new challenges, but tonight belongs to them.",
+                type: "passionate"
+            },
+            mutual_confession: {
+                title: "💕 HEARTFELT CONNECTION 💕",
+                text: "Sometimes the strongest bonds are forged in honesty. Alex and Jordan's admission of their feelings creates a new understanding between them. They'll navigate this carefully, but their connection is undeniable. Love finds a way, even among the stars.",
+                type: "emotional"
+            },
+            professional_retreat: {
+                title: "⭐ PROFESSIONAL RESPECT ⭐",
+                text: "Duty before desire. Both officers recognize the importance of maintaining professional boundaries, but the mutual respect and underlying attraction remain. Perhaps in another time, another place... The stars keep their secrets.",
+                type: "respectful"
+            },
+            sudden_retreat: {
+                title: "🌌 MISSED OPPORTUNITY 🌌",
+                text: "Fear of consequences leads to a step back from the brink. Sometimes the greatest regrets come from chances not taken. The tension remains, unresolved, waiting for another moment when courage might triumph over caution.",
+                type: "regretful"
+            }
+        };
+
+        function updateStats() {
+            document.getElementById('tension').textContent = gameState.tension;
+            document.getElementById('chemistry').textContent = gameState.chemistry;
+            document.getElementById('professionalism').textContent = gameState.professionalism;
+            document.getElementById('playfulness').textContent = gameState.playfulness;
+        }
+
+        function renderScene(sceneName) {
+            const scene = scenes[sceneName];
+            if (!scene) {
+                renderOutcome(sceneName);
+                return;
+            }
+
+            const container = document.getElementById('dialog-container');
+            
+            let html = `<div class="location">${scene.location}</div>`;
+            
+            // Check if scene has dialog or just redirects
+            if (scene.alex && scene.jordan) {
+                // Alex's dialog
+                html += `
+                    <div class="character alex">
+                        <div class="mood-indicator">${scene.alex.mood}</div>
+                        <div class="character-name">Commander Alex Chen</div>
+                        <div>${scene.alex.text}</div>
+                    </div>
+                `;
+                
+                // Jordan's dialog
+                html += `
+                    <div class="character jordan">
+                        <div class="mood-indicator">${scene.jordan.mood}</div>
+                        <div class="character-name">Lieutenant Jordan Rivera</div>
+                        <div>${scene.jordan.text}</div>
+                    </div>
+                `;
+            }
+            
+            // Choices
+            if (scene.choices) {
+                html += '<div class="choices">';
+                scene.choices.forEach((choice, index) => {
+                    const weightClass = choice.weight && choice.weight() ? choice.weight() : '';
+                    html += `<button class="choice ${weightClass}" onclick="makeChoice(${index})">${choice.text}</button>`;
+                });
+                html += '</div>';
+            } else if (scene.next) {
+                // Auto-redirect scene
+                setTimeout(() => {
+                    gameState.currentScene = scene.next;
+                    renderScene(scene.next);
+                }, 1000);
+                return;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function renderOutcome(outcomeName) {
+            const outcome = outcomes[outcomeName];
+            if (!outcome) return;
+
+            const container = document.getElementById('dialog-container');
+            container.innerHTML = `
+                <div class="outcome">
+                    <h2>${outcome.title}</h2>
+                    <p>${outcome.text}</p>
+                    <button class="restart" onclick="restartGame()">Begin New Encounter</button>
+                </div>
+            `;
+        }
+
+        function makeChoice(choiceIndex) {
+            const currentScene = scenes[gameState.currentScene];
+            const choice = currentScene.choices[choiceIndex];
+            
+            // Apply effects
+            if (choice.effects) {
+                Object.keys(choice.effects).forEach(key => {
+                    gameState[key] += choice.effects[key];
+                    // Keep stats within reasonable bounds
+                    gameState[key] = Math.max(0, Math.min(20, gameState[key]));
+                });
+            }
+            
+            // Add to history
+            gameState.history.push({
+                scene: gameState.currentScene,
+                choice: choiceIndex,
+                text: choice.text
+            });
+            
+            // Update current scene
+            gameState.currentScene = choice.next;
+            
+            // Update display
+            updateStats();
+            
+            // Add delay for dramatic effect
+            setTimeout(() => {
+                renderScene(gameState.currentScene);
+            }, 500);
+        }
+
+        function restartGame() {
+            gameState = {
+                tension: 0,
+                chemistry: 0,
+                professionalism: 10,
+                playfulness: 5,
+                currentScene: 'intro',
+                history: [],
+                alexMood: 'neutral',
+                jordanMood: 'neutral'
+            };
+            updateStats();
+            renderScene('intro');
+        }
+
+        // Initialize game
+        updateStats();
+        renderScene('intro');
+    </script>
+</body>
+</html>
