@@ -25,6 +25,10 @@ end
 function waves.update()
     waves.spawn_timer -= 1
     
+    -- calculate density based on player level
+    local level_density_mult = 1 + (xp.level - 1) * 0.3 -- 30% more density per level
+    local target_enemy_count = flr(8 * level_density_mult) -- base 8 enemies, scales with level
+    
     -- spawn enemies for current wave
     if waves.enemies_spawned < waves.enemies_this_wave and waves.spawn_timer <= 0 then
         waves.spawn_enemy()
@@ -40,12 +44,21 @@ function waves.update()
         end
     end
     
-    -- continuous spawning after wave 5
+    -- continuous spawning after wave 5 with level-based density
     if waves.current_wave >= 5 then
-        if waves.spawn_timer <= 0 then
+        local current_enemy_count = #enemies.get_list()
+        if current_enemy_count < target_enemy_count and waves.spawn_timer <= 0 then
             waves.spawn_enemy()
-            waves.spawn_timer = max(30, 180 - waves.current_wave * 5) -- faster spawning over time
+            -- faster spawning over time and with level
+            local base_spawn_time = max(30, 180 - waves.current_wave * 5)
+            waves.spawn_timer = max(15, flr(base_spawn_time / level_density_mult))
         end
+    end
+    
+    -- also maintain asteroid density based on level
+    local target_asteroid_count = flr(12 * (1 + (xp.level - 1) * 0.2)) -- 20% more asteroids per level
+    if #asteroids.get_list() < target_asteroid_count and rnd(200) < 1 then
+        asteroids.spawn()
     end
 end
 
@@ -72,19 +85,8 @@ function waves.spawn_enemy()
 end
 
 function waves.get_spawn_position()
-    -- spawn off screen around the edges
-    local side = flr(rnd(4))
-    local margin = 30
-    
-    if side == 0 then -- top
-        return rnd(sw), -margin
-    elseif side == 1 then -- right
-        return sw + margin, rnd(sh)
-    elseif side == 2 then -- bottom
-        return rnd(sw), sh + margin
-    else -- left
-        return -margin, rnd(sh)
-    end
+    -- use the enemy spawning system instead of duplicating logic
+    return enemies.get_spawn_position()
 end
 
 function waves.next_wave()

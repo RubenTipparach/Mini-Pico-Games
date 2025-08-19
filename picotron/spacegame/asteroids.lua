@@ -14,9 +14,13 @@ function asteroids.init()
 end
 
 function asteroids.spawn()
+    -- spawn off-screen around the camera/player
+    local spawn_distance = 200 + rnd(100) -- 200-300 pixels from camera center
+    local angle = rnd(1) -- random angle around player
+    
     local asteroid = {
-        x = rnd(sw),
-        y = rnd(sh),
+        x = camera.x + cos(angle) * spawn_distance,
+        y = camera.y + sin(angle) * spawn_distance,
         dx = (rnd(2) - 1) * 0.5,
         dy = (rnd(2) - 1) * 0.5,
         size = 3 + rnd(5),
@@ -25,13 +29,6 @@ function asteroids.spawn()
         color = 6,
         health = 20
     }
-    
-    -- make sure asteroid isn't too close to player spawn
-    local dist = sqrt((asteroid.x - sw/2)^2 + (asteroid.y - sh/2)^2)
-    if dist < 50 then
-        asteroid.x = asteroid.x + 100
-        asteroid.y = asteroid.y + 100
-    end
     
     add(asteroids.list, asteroid)
 end
@@ -45,17 +42,10 @@ function asteroids.update()
         asteroid.y += asteroid.dy
         asteroid.rotation += asteroid.rotation_speed
         
-        -- wrap around screen
-        if asteroid.x < -asteroid.size then
-            asteroid.x = sw + asteroid.size
-        elseif asteroid.x > sw + asteroid.size then
-            asteroid.x = -asteroid.size
-        end
-        
-        if asteroid.y < -asteroid.size then
-            asteroid.y = sh + asteroid.size
-        elseif asteroid.y > sh + asteroid.size then
-            asteroid.y = -asteroid.size
+        -- remove asteroids that drift too far from camera
+        local dist_from_camera = sqrt((asteroid.x - camera.x)^2 + (asteroid.y - camera.y)^2)
+        if dist_from_camera > 400 then
+            del(asteroids.list, asteroid)
         end
         
         -- remove destroyed asteroids

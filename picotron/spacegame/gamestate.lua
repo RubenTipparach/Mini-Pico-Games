@@ -1,11 +1,12 @@
+--[[pod_format="raw",created="2025-08-16 22:26:22",modified="2025-08-19 02:14:12",revision=9]]
 -- gamestate.lua - manages menu, ship selection, and game over states
 
 gamestate = {}
 
 local ships = {
-    {name = "Fighter", health = 100, speed = 1, color = 7, starting_weapon = "cannon"},
-    {name = "Cruiser", health = 150, speed = 0.8, color = 11, starting_weapon = "laser"},
-    {name = "Scout", health = 75, speed = 1.2, color = 6, starting_weapon = "missile"}
+    {name = "Fighter", health = 100, speed = .1, color = 7, starting_weapon = "cannon"},
+    {name = "Cruiser", health = 150, speed = 0.05, color = 11, starting_weapon = "laser"},
+    {name = "Scout", health = 75, speed = 0.12, color = 6, starting_weapon = "missile"}
 }
 
 local selected_ship = 1
@@ -62,8 +63,9 @@ function gamestate.draw_menu()
         circfill(x, y + 10, 3, ship.color)
     end
     
-    print("Press X to start", sw/2 - 40, 220, 6)
-    print("Use arrows to select", sw/2 - 50, 240, 5)
+    print("Press Z to start", sw/2 - 40, 220, 6)
+     print("WASD move ship, mouse rotate, Z shoot.", sw/2 - 90, 240, 5)
+    print("Use arrows to select", sw/2 - 50, 260, 5)
 end
 
 function gamestate.draw_game_over()
@@ -77,7 +79,8 @@ function gamestate.draw_game_over()
         print("High Score: " .. game.high_score, sw/2 - 40, 140, 6)
     end
     
-    print("Press X to return to menu", sw/2 - 60, 180, 5)
+    print("Press Z to return to menu", sw/2 - 60, 180, 5)
+   
 end
 
 function gamestate.game_over()

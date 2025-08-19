@@ -1,3 +1,4 @@
+--[[pod_format="raw",created="2025-08-16 22:05:14",modified="2025-08-19 02:12:29",revision=83]]
 -- player.lua - player ship system
 
 player = {
@@ -10,6 +11,7 @@ player = {
     max_health = 100,
     speed = 1,
     color = 7,
+    base_color = 7,
     size = 4,
     current_weapons = {},
     
@@ -21,7 +23,8 @@ player = {
     armor = 0,
     crit_chance = 0,
     
-    regen_timer = 0
+    regen_timer = 0,
+    hit_flash_timer = 0
 }
 
 function player.init()
@@ -34,6 +37,7 @@ function player.setup(ship_data)
     player.max_health = ship_data.health
     player.speed = ship_data.speed
     player.color = ship_data.color
+    player.base_color = ship_data.color
     player.current_weapons = {ship_data.starting_weapon}
     
     -- reset upgrades
@@ -44,15 +48,16 @@ function player.setup(ship_data)
     player.armor = 0
     player.crit_chance = 0
     player.regen_timer = 0
+    player.hit_flash_timer = 0
 end
 
 function player.update()
     -- mouse rotation - ship always points toward mouse cursor
     local mx, my = mouse()
     
-    -- ship position on screen (since camera keeps it centered)
-    local ship_screen_x = sw / 2
-    local ship_screen_y = sh / 2
+    -- ship position on screen (actual screen coordinates)
+    local ship_screen_x = player.x - camera.x + sw/2
+    local ship_screen_y = player.y - camera.y + sh/2
     
     -- calculate direction vector from ship to mouse
     local dx = mx - ship_screen_x
@@ -68,7 +73,7 @@ function player.update()
         local norm_y = dy / distance
         
         -- convert normalized vector to angle
-        player.angle = atan2(norm_y, norm_x)
+        player.angle = (-atan2(dy, dx)) -(math.rad(45) /math.pi)
     end
     
     -- WASD movement relative to ship rotation
@@ -85,11 +90,11 @@ function player.update()
     end
     
     -- A/D - strafe left/right relative to ship facing
-    if key("a") then 
+    if key("d") then 
         player.dx += cos(player.angle - 0.25) * move_speed * 0.7
         player.dy += sin(player.angle - 0.25) * move_speed * 0.7
     end
-    if key("d") then 
+    if key("a") then 
         player.dx += cos(player.angle + 0.25) * move_speed * 0.7
         player.dy += sin(player.angle + 0.25) * move_speed * 0.7
     end
@@ -109,6 +114,15 @@ function player.update()
             player.health = min(player.max_health, player.health + player.health_regen)
             player.regen_timer = 0
         end
+    end
+    
+    -- update hit flash timer and color
+    if player.hit_flash_timer > 0 then
+        player.hit_flash_timer -= 1
+        -- flicker between red and base color
+        player.color = (player.hit_flash_timer % 6 < 3) and 8 or player.base_color
+    else
+        player.color = player.base_color
     end
     
     -- check for death
@@ -159,6 +173,36 @@ function player.draw()
     rect(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h, 5)
     local health_w = (player.health / player.max_health) * bar_w
     rectfill(bar_x, bar_y, bar_x + health_w, bar_y + bar_h, player.health > 30 and 11 or 8)
+ 
+    -- mouse rotation - ship always points toward mouse cursor
+    local mx, my = mouse()
+    
+   -- DEBUG stuff
+	-- ship position on screen (since camera keeps it centered)
+	
+
+    -- ship position on screen (actual screen coordinates)
+    local sx = player.x - camera.x + sw/2
+    local sy = player.y - camera.y + sh/2
+	
+	--line(mx, my, sx, sy, 11)
+	
+	local angle = atan2(mx - sx, my - sy)
+
+	offset = 10 -- offsetline
+	
+	len = 500 -- line length
+	
+	x2 = sx + cos(angle) * offset
+	y2 = sy + sin(angle) * offset
+	--line(sx, sy, x2, y2, 8)
+	
+	x3 = sx + cos(player.angle) * len
+	y3 = sy + sin(player.angle) * len
+	line(x2, y2, x3, y3, 11)
+	--[[	
+	local degreesAngle = math.deg(angle)	
+	print(degreesAngle)]]--
 end
 
 function player.take_damage(damage)
@@ -166,9 +210,8 @@ function player.take_damage(damage)
     local actual_damage = max(1, damage - player.armor)
     player.health -= actual_damage
     
-    -- visual feedback - flash red
-    player.color = 8
-    -- reset color after a few frames (would need timer system)
+    -- trigger hit flash effect
+    player.hit_flash_timer = 30 -- 0.5 seconds at 60fps
 end
 
 function player.has_weapon(weapon_name)

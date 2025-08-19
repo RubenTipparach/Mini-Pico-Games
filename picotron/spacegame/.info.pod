@@ -1,0 +1,1 @@
+--[[pod,created="2025-08-19 01:41:45",modified="2025-08-19 02:14:33",runtime=20,workspaces={{location="main.lua",workspace_index=1},{location="player.lua#201",workspace_index=1},{location="gamestate.lua#66",workspace_index=1},{location="weapons.lua",workspace_index=1}}]]

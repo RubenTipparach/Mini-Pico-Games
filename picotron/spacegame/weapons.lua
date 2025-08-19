@@ -15,7 +15,7 @@ local weapon_data = {
         range = 150,
         spread = 0,
         projectile_speed = 5,
-        color = 10 -- bright yellow
+        color = 12 -- bright blue
     },
     laser = {
         name = "Laser",
@@ -24,7 +24,7 @@ local weapon_data = {
         range = 200,
         spread = 0,
         projectile_speed = 8,
-        color = 10 -- bright yellow
+        color = 11 -- bright green
     },
     missile = {
         name = "Missile",

@@ -92,9 +92,15 @@ function collision.check_enemy_player()
     
     for enemy in all(enemy_list) do
         if collision.circle_collision(player.x, player.y, player.size, enemy.x, enemy.y, enemy.size) then
-            -- damage both player and enemy
+            -- big explosion effect at collision point
+            local explosion_x = (player.x + enemy.x) / 2
+            local explosion_y = (player.y + enemy.y) / 2
+            explosions.spawn(explosion_x, explosion_y, 20, 40, 8) -- large explosion
+            
+            -- damage player and kill enemy (no XP reward for collision)
             player.take_damage(enemy.damage)
-            enemies.damage_enemy(enemy, 999) -- kill enemy on contact
+            enemy.health = 0 -- kill enemy 
+            enemy.killed_by_collision = true -- mark as collision kill (no XP)
         end
     end
 end

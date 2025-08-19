@@ -58,7 +58,10 @@ function enemies.update()
         
         -- remove dead enemies
         if enemy.health <= 0 then
-            xp.spawn_orb(enemy.x, enemy.y, enemy.xp_value)
+            -- only spawn XP if enemy wasn't killed by collision
+            if not enemy.killed_by_collision then
+                xp.spawn_orb(enemy.x, enemy.y, enemy.xp_value)
+            end
             del(enemies.list, enemy)
         end
     end
@@ -121,13 +124,10 @@ function enemies.update_enemy(enemy)
         end
     end
     
-    -- keep enemies roughly on screen (with some buffer for off-screen spawning)
-    if enemy.x < -50 or enemy.x > sw + 50 or enemy.y < -50 or enemy.y > sh + 50 then
-        -- respawn on opposite side
-        if enemy.x < -50 then enemy.x = sw + 40 end
-        if enemy.x > sw + 50 then enemy.x = -40 end
-        if enemy.y < -50 then enemy.y = sh + 40 end
-        if enemy.y > sh + 50 then enemy.y = -40 end
+    -- remove enemies that drift too far from player
+    local dist_from_player = sqrt((enemy.x - player.x)^2 + (enemy.y - player.y)^2)
+    if dist_from_player > 500 then
+        del(enemies.list, enemy)
     end
 end
 
@@ -167,17 +167,14 @@ function enemies.spawn(enemy_type, x, y)
 end
 
 function enemies.get_spawn_position()
-    -- spawn off screen
-    local side = flr(rnd(4))
-    if side == 0 then -- top
-        return rnd(sw), -20
-    elseif side == 1 then -- right
-        return sw + 20, rnd(sh)
-    elseif side == 2 then -- bottom
-        return rnd(sw), sh + 20
-    else -- left
-        return -20, rnd(sh)
-    end
+    -- spawn off-screen around the player in world coordinates
+    local spawn_distance = 250 + rnd(50) -- 250-300 pixels from player
+    local angle = rnd(1) -- random angle around player
+    
+    local x = player.x + cos(angle) * spawn_distance
+    local y = player.y + sin(angle) * spawn_distance
+    
+    return x, y
 end
 
 function enemies.draw()
