@@ -12,3 +12,4 @@ Make a folder in your pico directory `game.p64` then move files in there.
 Just copy paste into the "drive" folder.
 
 
+![lander](dumb_lander_0.gif)
