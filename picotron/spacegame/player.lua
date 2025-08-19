@@ -54,13 +54,21 @@ function player.update()
     local ship_screen_x = sw / 2
     local ship_screen_y = sh / 2
     
-    -- calculate angle from ship to mouse on screen
+    -- calculate direction vector from ship to mouse
     local dx = mx - ship_screen_x
     local dy = my - ship_screen_y
     
-    -- use atan2 to get angle in all quadrants
-    if dx != 0 or dy != 0 then
-        player.angle = atan2(dy, dx)
+    -- calculate distance (magnitude of vector)
+    local distance = sqrt(dx * dx + dy * dy)
+    
+    -- only update rotation if mouse is not at ship center
+    if distance > 0 then
+        -- normalize the direction vector
+        local norm_x = dx / distance
+        local norm_y = dy / distance
+        
+        -- convert normalized vector to angle
+        player.angle = atan2(norm_y, norm_x)
     end
     
     -- WASD movement relative to ship rotation
