@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starfleet Dialog Encounter</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .console {
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #4a9eff;
+            border-radius: 15px;
+            max-width: 900px;
+            width: 100%;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(74, 158, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .title {
+            text-align: center;
+            color: #4a9eff;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+        }
+
+        .scene-setup {
+            background: rgba(74, 158, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .character {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 10px;
+            position: relative;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .alex {
+            background: linear-gradient(135deg, rgba(255, 100, 100, 0.15), rgba(255, 150, 150, 0.05));
+            border-left: 4px solid #ff6464;
+        }
+
+        .jordan {
+            background: linear-gradient(135deg, rgba(100, 255, 100, 0.15), rgba(150, 255, 150, 0.05));
+            border-left: 4px solid #64ff64;
+        }
+
+        .character-name {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .alex .character-name {
+            color: #ff9999;
+        }
+
+        .jordan .character-name {
+            color: #99ff99;
+        }
+
+        .choices {
+            margin: 25px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(74, 158, 255, 0.3);
+        }
+
+        .choice {
+            display: block;
+            width: 100%;
+            padding: 15px 20px;
+            margin: 10px 0;
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.2), rgba(74, 158, 255, 0.1));
+            border: 2px solid transparent;
+            border-radius: 8px;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            font-size: 14px;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .choice:hover {
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.4), rgba(74, 158, 255, 0.2));
+            border-color: #4a9eff;
+            box-shadow: 0 0 15px rgba(74, 158, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .choice:active {
+            transform: translateY(0);
+        }
+
+        .choice.weighted {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
+            border-color: rgba(255, 215, 0, 0.3);
+        }
+
+        .choice.weighted:hover {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(255, 215, 0, 0.2));
+            border-color: #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(74, 158, 255, 0.2);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .tension { color: #ff6464; }
+        .chemistry { color: #ff64ff; }
+        .professionalism { color: #64ff64; }
+        .playfulness { color: #ffff64; }
+
+        .location {
+            text-align: center;
+            color: #4a9eff;
+            font-style: italic;
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }
+
+        .outcome {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.1));
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            text-align: center;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        .restart {
+            background: linear-gradient(135deg, #4a9eff, #2d7dd2);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .restart:hover {
+            background: linear-gradient(135deg, #2d7dd2, #1a5fa8);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 158, 255, 0.4);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+            to { box-shadow: 0 0 30px rgba(255, 215, 0, 0.6); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .mood-indicator {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 20px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="console">
+        <h1 class="title">🚀 STARFLEET ENCOUNTER SIMULATOR 🚀</h1>
+        
+        <div class="scene-setup">
+            <strong>Setting:</strong> Late evening shift aboard the USS Enterprise. Most of the crew is off duty, leaving the corridors dimly lit and peaceful. Two officers find themselves alone...
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Tension</div>
+                <div class="stat-value tension" id="tension">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Chemistry</div>
+                <div class="stat-value chemistry" id="chemistry">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Professionalism</div>
+                <div class="stat-value professionalism" id="professionalism">10</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Playfulness</div>
+                <div class="stat-value playfulness" id="playfulness">5</div>
+            </div>
+        </div>
+
+        <div id="dialog-container">
+            <!-- Dialog will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            tension: 0,
+            chemistry: 0,
+            professionalism: 10,
+            playfulness: 5,
+            currentScene: 'intro',
+            history: [],
+            alexMood: 'neutral',
+            jordanMood: 'neutral'
+        };
+
+        const scenes = {
+            intro: {
+                location: "Deck 7 Corridor - 2247 Hours",
+                alex: {
+                    text: "Well, well... Lieutenant Jordan. Burning the midnight oil again?",
+                    mood: "😏"
+                },
+                jordan: {
+                    text: "Commander Alex! I could ask you the same. Though I suspect your definition of 'work' is more flexible than mine.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "Is that a challenge, Lieutenant? I'd be happy to show you my... work ethic.",
+                        effects: { tension: 2, chemistry: 1, professionalism: -1, playfulness: 2 },
+                        next: 'flirty_response_1'
+                    },
+                    {
+                        text: "Just reviewing some tactical reports. Care to join me? I could use a fresh perspective.",
+                        effects: { professionalism: 1, chemistry: 1 },
+                        next: 'professional_invite'
+                    },
+                    {
+                        text: "Actually, I was just heading to Ten Forward. The night shift deserves a drink, don't you think?",
+                        effects: { playfulness: 2, tension: -1 },
+                        next: 'casual_invite'
+                    },
+                    {
+                        text: "Caught me. I was actually looking for you, Jordan. We need to talk.",
+                        effects: { tension: 3, chemistry: 2, professionalism: -2 },
+                        next: 'direct_approach'
+                    }
+                ]
+            },
+
+            flirty_response_1: {
+                location: "Deck 7 Corridor - Growing Warmer",
+                alex: {
+                    text: "*steps closer* I do appreciate... thoroughness in all endeavors, Commander.",
+                    mood: "😌"
+                },
+                jordan: {
+                    text: "*raises eyebrow* Is that so? And here I thought Starfleet frowned upon... unprofessional conduct.",
+                    mood: "😏"
+                },
+                choices: [
+                    {
+                        text: "Starfleet has many regulations, but they say nothing about appreciating a colleague's... dedication.",
+                        effects: { chemistry: 3, tension: 2, professionalism: -2 },
+                        weight: () => gameState.chemistry > 3 ? 'weighted' : '',
+                        next: 'escalating_tension'
+                    },
+                    {
+                        text: "You're right, of course. Perhaps we should keep things... strictly professional.",
+                        effects: { professionalism: 2, tension: -1, chemistry: -1 },
+                        next: 'professional_retreat'
+                    },
+                    {
+                        text: "Walk with me to the observation deck? The stars are beautiful tonight, and I'd hate to admire them alone.",
+                        effects: { chemistry: 2, playfulness: 1, tension: 1 },
+                        weight: () => gameState.playfulness > 7 ? 'weighted' : '',
+                        next: 'observation_deck'
+                    },
+                    {
+                        text: "*playfully* Well, if we're going to break regulations, we might as well do it properly. Coffee in my quarters?",
+                        effects: { chemistry: 2, playfulness: 3, tension: 2, professionalism: -3 },
+                        weight: () => gameState.tension > 5 && gameState.chemistry > 5 ? 'weighted' : '',
+                        next: 'quarters_invite'
+                    }
+                ]
+            },
+
+            professional_invite: {
+                location: "Commander Alex's Office - 2251 Hours",
+                alex: {
+                    text: "*gestures to chair* Please, have a seat. These Romulan tactical analyses are... intriguing.",
+                    mood: "🤔"
+                },
+                jordan: {
+                    text: "*settles in chair, noticing the dim lighting* Cozy setup for tactical analysis, Commander. Are you always so... atmospheric in your work?",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "I find ambient lighting helps with focus. Though I admit, the company makes it far more pleasant.",
+                        effects: { chemistry: 2, professionalism: 1, playfulness: 1 },
+                        next: 'office_flirtation'
+                    },
+                    {
+                        text: "The lighting system has been malfunctioning. But let's focus on these patrol routes - I value your tactical input.",
+                        effects: { professionalism: 2, tension: -1 },
+                        next: 'pure_professional'
+                    },
+                    {
+                        text: "*moves chair closer* Better view of the data this way. Now, what do you make of their defensive patterns?",
+                        effects: { tension: 2, chemistry: 1, professionalism: 1 },
+                        weight: () => gameState.professionalism > 8 ? 'weighted' : '',
+                        next: 'close_collaboration'
+                    }
+                ]
+            },
+
+            casual_invite: {
+                location: "En Route to Ten Forward",
+                alex: {
+                    text: "*falls into step beside Jordan* You know, I've always wondered what you do to unwind after those long shifts in Engineering.",
+                    mood: "😊"
+                },
+                jordan: {
+                    text: "Usually I'd say 'sleep,' but lately I've been finding it... difficult to switch off. Too much energy, maybe.",
+                    mood: "😌"
+                },
+                choices: [
+                    {
+                        text: "I know the feeling. Sometimes you need the right company to help you... relax.",
+                        effects: { chemistry: 2, tension: 1, playfulness: 1 },
+                        next: 'ten_forward_chemistry'
+                    },
+                    {
+                        text: "Have you tried the holodeck's meditation programs? I could show you my favorite sometime.",
+                        effects: { chemistry: 1, professionalism: 1, playfulness: 2 },
+                        next: 'holodeck_suggestion'
+                    },
+                    {
+                        text: "Well, if we're going to be insomniacs together, we might as well make it interesting. Truth or dare over drinks?",
+                        effects: { playfulness: 3, chemistry: 1, tension: 1, professionalism: -1 },
+                        weight: () => gameState.playfulness > 6 ? 'weighted' : '',
+                        next: 'truth_or_dare'
+                    }
+                ]
+            },
+
+            direct_approach: {
+                location: "Deck 7 Corridor - The Air Grows Thick",
+                alex: {
+                    text: "*voice lowers* I've been thinking about you, Jordan. More than a commanding officer probably should.",
+                    mood: "😳"
+                },
+                jordan: {
+                    text: "*eyes widen, then soften* Alex... I was wondering when you'd finally say something. The tension's been killing me.",
+                    mood: "💕"
+                },
+                choices: [
+                    {
+                        text: "Then you feel it too? This... connection between us?",
+                        effects: { chemistry: 4, tension: 3, professionalism: -2 },
+                        next: 'mutual_confession'
+                    },
+                    {
+                        text: "We should be careful, Jordan. Our careers, the crew... there's so much at stake.",
+                        effects: { tension: 2, professionalism: 2, chemistry: 1 },
+                        next: 'conflicted_feelings'
+                    },
+                    {
+                        text: "*steps closer* Regulations be damned. Life's too short to ignore something this powerful.",
+                        effects: { chemistry: 3, tension: 4, professionalism: -3, playfulness: 1 },
+                        weight: () => gameState.tension > 4 ? 'weighted' : '',
+                        next: 'passionate_moment'
+                    }
+                ]
+            },
+
+            escalating_tension: {
+                location: "Deck 7 Corridor - Electric Atmosphere",
+                alex: {
+                    text: "*voice husky* You know, Jordan, there are many ways to show... appreciation for a fellow officer's skills.",
+                    mood: "😍"
+                },
+                jordan: {
+                    text: "*breath catches* Commander, you're playing with fire. Are you prepared for the consequences?",
+                    mood: "🔥"
+                },
+                choices: [
+                    {
+                        text: "*whispers* I've never been one to back down from a challenge, especially one so... enticing.",
+                        effects: { chemistry: 4, tension: 4, professionalism: -3 },
+                        next: 'point_of_no_return'
+                    },
+                    {
+                        text: "Maybe we should cool down before we do something we'll regret. Professional distance, Jordan.",
+                        effects: { professionalism: 3, tension: -2, chemistry: -1 },
+                        next: 'sudden_retreat'
+                    },
+                    {
+                        text: "Your quarters or mine? This corridor is far too public for what I have in mind.",
+                        effects: { chemistry: 5, tension: 5, professionalism: -4, playfulness: 2 },
+                        weight: () => gameState.chemistry > 8 && gameState.tension > 8 ? 'weighted' : '',
+                        next: 'private_invitation'
+                    }
+                ]
+            },
+
+            // Additional scenes to complete the paths
+            observation_deck: {
+                location: "Observation Deck - Stars Gleaming",
+                alex: {
+                    text: "*gazing at the stars* You know, Jordan, some of the most beautiful things in the universe appear when you least expect them.",
+                    mood: "✨"
+                },
+                jordan: {
+                    text: "*steps closer to the viewport* Are we still talking about stars, Commander? Because I think I see something even more beautiful right here.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "*turns to face Jordan* The universe has a way of bringing people together at just the right moment.",
+                        effects: { chemistry: 3, playfulness: 2, tension: 2 },
+                        next: 'starlight_romance'
+                    },
+                    {
+                        text: "Jordan, I... *reaches out but hesitates* We should be careful about what we're starting here.",
+                        effects: { tension: 3, chemistry: 2, professionalism: 1 },
+                        next: 'hesitant_moment'
+                    }
+                ]
+            },
+
+            quarters_invite: {
+                location: "Outside Alex's Quarters",
+                alex: {
+                    text: "*pauses at the door* Last chance to change your mind, Jordan. Once we cross this threshold...",
+                    mood: "💭"
+                },
+                jordan: {
+                    text: "*steps closer* Some lines are meant to be crossed, Alex. I'm not going anywhere.",
+                    mood: "💕"
+                },
+                choices: [
+                    {
+                        text: "*takes Jordan's hand* Then let's see where this leads us.",
+                        effects: { chemistry: 5, tension: 4, professionalism: -4 },
+                        next: 'intimate_evening'
+                    }
+                ]
+            },
+
+            office_flirtation: {
+                location: "Commander Alex's Office - Growing Intimate",
+                alex: {
+                    text: "*leans back in chair* You know, Jordan, your insights are always... illuminating. In more ways than one.",
+                    mood: "😏"
+                },
+                jordan: {
+                    text: "*smiles* Careful, Commander. Compliments like that might go to my head. Or worse... my heart.",
+                    mood: "💖"
+                },
+                choices: [
+                    {
+                        text: "Would that be such a terrible thing? Your heart, I mean...",
+                        effects: { chemistry: 4, tension: 2, professionalism: -2 },
+                        next: 'heart_confession'
+                    },
+                    {
+                        text: "We should focus on the work, shouldn't we? Even if... other things are more appealing.",
+                        effects: { professionalism: 2, tension: 2, chemistry: 1 },
+                        next: 'work_tension'
+                    }
+                ]
+            },
+
+            ten_forward_chemistry: {
+                location: "Ten Forward - Ambient Lighting",
+                alex: {
+                    text: "*slides into booth across from Jordan* You know, I've been thinking about relaxation techniques. Some require... partnership.",
+                    mood: "😉"
+                },
+                jordan: {
+                    text: "*raises glass* To partnership then. In all its forms.",
+                    mood: "🥂"
+                },
+                choices: [
+                    {
+                        text: "*raises glass* To exploring new frontiers... together.",
+                        effects: { chemistry: 3, playfulness: 2, tension: 2 },
+                        next: 'toast_to_romance'
+                    }
+                ]
+            },
+
+            // Missing scenes
+            pure_professional: {
+                location: "Commander Alex's Office - Back to Business",
+                alex: {
+                    text: "*adjusts lighting to full brightness* You're absolutely right. Let's focus on these Romulan patterns.",
+                    mood: "🤔"
+                },
+                jordan: {
+                    text: "*relieved but slightly disappointed* Of course, Commander. Duty first. These defensive formations are quite sophisticated.",
+                    mood: "😌"
+                },
+                choices: [
+                    {
+                        text: "Your analysis is spot-on as always, Jordan. I value your professional insight.",
+                        effects: { professionalism: 2, chemistry: 1 },
+                        next: 'professional_retreat'
+                    }
+                ]
+            },
+
+            close_collaboration: {
+                location: "Commander Alex's Office - Working in Proximity",
+                alex: {
+                    text: "*shoulder brushes against Jordan's* From this angle, you can see how their flanking maneuvers mirror our own tactics.",
+                    mood: "😊"
+                },
+                jordan: {
+                    text: "*acutely aware of the closeness* Yes, I can see that clearly now. Very... illuminating, Commander.",
+                    mood: "😳"
+                },
+                choices: [
+                    {
+                        text: "Sometimes the best insights come from... close examination. Don't you think?",
+                        effects: { chemistry: 3, tension: 2, professionalism: 1 },
+                        next: 'office_flirtation'
+                    },
+                    {
+                        text: "*clears throat and moves slightly back* Perhaps we should review these from separate terminals.",
+                        effects: { professionalism: 2, tension: -1 },
+                        next: 'pure_professional'
+                    }
+                ]
+            },
+
+            holodeck_suggestion: {
+                location: "Corridor to Ten Forward",
+                alex: {
+                    text: "*stops walking* Actually, Jordan, I have a better idea. There's a beautiful sunset program on Risa I've been wanting to try.",
+                    mood: "✨"
+                },
+                jordan: {
+                    text: "*intrigued* A sunset program? That sounds... romantic. I mean, relaxing. Definitely relaxing.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "Why not both? Romance and relaxation often go hand in hand.",
+                        effects: { chemistry: 3, playfulness: 2, tension: 1 },
+                        next: 'holodeck_romance'
+                    },
+                    {
+                        text: "Just two colleagues enjoying a peaceful simulation. Nothing more.",
+                        effects: { professionalism: 1, playfulness: 2 },
+                        next: 'holodeck_friendship'
+                    }
+                ]
+            },
+
+            truth_or_dare: {
+                location: "Ten Forward - Corner Booth",
+                alex: {
+                    text: "*grins mischievously* Alright, Jordan. Truth or dare?",
+                    mood: "😏"
+                },
+                jordan: {
+                    text: "*considers carefully* Truth. I'm feeling brave tonight.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "What's the most unprofessional thought you've had about a fellow officer?",
+                        effects: { chemistry: 2, tension: 2, playfulness: 2, professionalism: -2 },
+                        next: 'truth_confession'
+                    },
+                    {
+                        text: "What's your biggest regret about our friendship?",
+                        effects: { chemistry: 1, tension: 1, professionalism: 1 },
+                        next: 'friendship_reflection'
+                    }
+                ]
+            },
+
+            // New bridging scenes
+            holodeck_romance: {
+                location: "Holodeck - Risan Sunset",
+                alex: {
+                    text: "*watches the artificial sun set over alien waters* Beautiful, isn't it? Though not as beautiful as the company.",
+                    mood: "💕"
+                },
+                jordan: {
+                    text: "*moves closer* Alex... I think I know what you're really asking.",
+                    mood: "😍"
+                },
+                choices: [
+                    {
+                        text: "*takes Jordan's hand* Then you know my answer doesn't require words.",
+                        effects: { chemistry: 4, tension: 3, professionalism: -2 },
+                        next: 'mutual_confession'
+                    }
+                ]
+            },
+
+            holodeck_friendship: {
+                location: "Holodeck - Peaceful Risan Beach",
+                alex: {
+                    text: "*sits on simulated sand* Sometimes it's nice to just... exist without the weight of duty.",
+                    mood: "😌"
+                },
+                jordan: {
+                    text: "*sits nearby* You're right. Though I have to admit, the company makes it even better.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "Jordan... what if duty isn't the only thing keeping us apart?",
+                        effects: { chemistry: 2, tension: 2, professionalism: 1 },
+                        next: 'conflicted_feelings'
+                    }
+                ]
+            },
+
+            truth_confession: {
+                location: "Ten Forward - Intense Conversation",
+                alex: {
+                    text: "*leans forward intently* Well? I answered your dare last round.",
+                    mood: "😏"
+                },
+                jordan: {
+                    text: "*takes a deep breath* I've imagined what it would be like to kiss you. More than once.",
+                    mood: "😳"
+                },
+                choices: [
+                    {
+                        text: "*voice husky* Imagination is a wonderful thing... but reality could be even better.",
+                        effects: { chemistry: 4, tension: 4, professionalism: -3 },
+                        next: 'point_of_no_return'
+                    }
+                ]
+            },
+
+            friendship_reflection: {
+                location: "Ten Forward - Heartfelt Moment",
+                alex: {
+                    text: "*expression grows serious* What regret could you possibly have about us?",
+                    mood: "🤔"
+                },
+                jordan: {
+                    text: "*looks down* That we've never been honest about what this really is between us.",
+                    mood: "💭"
+                },
+                choices: [
+                    {
+                        text: "Then let's be honest now. I care about you, Jordan. More than I should.",
+                        effects: { chemistry: 3, tension: 2, professionalism: -1 },
+                        next: 'mutual_confession'
+                    }
+                ]
+            },
+
+            // Terminal outcome scenes with proper dialog
+            conflicted_feelings: {
+                location: "The Weight of Decision",
+                alex: {
+                    text: "*runs hands through hair* Jordan, I... we have to think about what this means. Our careers, the crew...",
+                    mood: "😰"
+                },
+                jordan: {
+                    text: "*nods slowly* I know. But Alex, some things are worth the risk. The question is... are we?",
+                    mood: "💭"
+                },
+                choices: [
+                    {
+                        text: "You're worth any risk, Jordan. Let's figure this out together.",
+                        effects: { chemistry: 3, tension: 2, professionalism: -1 },
+                        next: 'mutual_confession'
+                    },
+                    {
+                        text: "Maybe... maybe we should take some time to think about this.",
+                        effects: { professionalism: 2, tension: -1 },
+                        next: 'conflicted_ending'
+                    }
+                ]
+            },
+
+            mutual_confession: {
+                location: "A Moment of Truth",
+                alex: {
+                    text: "*takes Jordan's hands* Whatever happens next, I need you to know - this is real for me. You're real for me.",
+                    mood: "💕"
+                },
+                jordan: {
+                    text: "*eyes bright with emotion* Alex... I've never felt anything like this before. Whatever the consequences, I'm ready to face them with you.",
+                    mood: "😍"
+                },
+                choices: [
+                    {
+                        text: "*pulls Jordan close* Then let's stop fighting what we both want.",
+                        effects: { chemistry: 5, tension: 4, professionalism: -3 },
+                        next: 'point_of_no_return'
+                    },
+                    {
+                        text: "We'll take this slow, but we'll take it together. One step at a time.",
+                        effects: { chemistry: 3, professionalism: 1, tension: 1 },
+                        next: 'mutual_confession_ending'
+                    }
+                ]
+            },
+
+            // Intermediate stat-driven scenes
+            relationship_crossroads: {
+                location: () => {
+                    if (gameState.tension > 6) return "A Charged Moment";
+                    if (gameState.chemistry > 6) return "Growing Connection";
+                    if (gameState.professionalism > 8) return "Professional Boundaries";
+                    return "Uncertain Territory";
+                },
+                alex: {
+                    text: () => {
+                        if (gameState.tension > 6 && gameState.chemistry > 4) {
+                            return "*breathing heavily* Jordan, I can't keep pretending this tension between us doesn't exist.";
+                        } else if (gameState.chemistry > 6) {
+                            return "*voice soft* You know, Jordan, I think we've moved beyond just colleagues, haven't we?";
+                        } else if (gameState.professionalism > 8) {
+                            return "*maintains composure* Jordan, we should discuss how to maintain appropriate boundaries given our... situation.";
+                        } else {
+                            return "*uncertain* Jordan, I'm not sure where we stand right now. What do you think?";
+                        }
+                    },
+                    mood: () => {
+                        if (gameState.tension > 6) return "🔥";
+                        if (gameState.chemistry > 6) return "💕";
+                        if (gameState.professionalism > 8) return "🤔";
+                        return "😐";
+                    }
+                },
+                jordan: {
+                    text: () => {
+                        if (gameState.tension > 6 && gameState.chemistry > 4) {
+                            return "*steps closer* Then let's stop pretending, Alex. This is bigger than both of us.";
+                        } else if (gameState.chemistry > 6) {
+                            return "*smiles warmly* I was hoping you felt it too. This connection... it's special.";
+                        } else if (gameState.professionalism > 8) {
+                            return "*nods seriously* You're right. We need clear guidelines to maintain our effectiveness as officers.";
+                        } else {
+                            return "*thoughtful* I think we need to figure out what this is between us, Alex.";
+                        }
+                    },
+                    mood: () => {
+                        if (gameState.tension > 6) return "😍";
+                        if (gameState.chemistry > 6) return "😊";
+                        if (gameState.professionalism > 8) return "😌";
+                        return "🤷";
+                    }
+                },
+                choices: () => {
+                    let choices = [];
+                    
+                    // High tension + chemistry path
+                    if (gameState.tension > 6 && gameState.chemistry > 4) {
+                        choices.push({
+                            text: "*passionately* Then let's stop fighting this. I want you, Jordan.",
+                            effects: { chemistry: 3, tension: 2, professionalism: -4 },
+                            next: 'passionate_declaration',
+                            weight: 'weighted'
+                        });
+                    }
+                    
+                    // High chemistry path
+                    if (gameState.chemistry > 5) {
+                        choices.push({
+                            text: "I care about you, Jordan. More than I've ever cared about anyone.",
+                            effects: { chemistry: 3, tension: 1, playfulness: 1 },
+                            next: 'deep_emotional_moment'
+                        });
+                    }
+                    
+                    // High professionalism path
+                    if (gameState.professionalism > 7) {
+                        choices.push({
+                            text: "Perhaps we should establish some protocols for our professional interaction.",
+                            effects: { professionalism: 2, chemistry: -1 },
+                            next: 'professional_protocol'
+                        });
+                    }
+                    
+                    // High playfulness path
+                    if (gameState.playfulness > 6) {
+                        choices.push({
+                            text: "You know what? Let's just see where this goes. Life's too short for overthinking.",
+                            effects: { playfulness: 2, chemistry: 2, professionalism: -1 },
+                            next: 'spontaneous_adventure'
+                        });
+                    }
+                    
+                    // Always available cautious option
+                    choices.push({
+                        text: "We should be careful about how we proceed. There's a lot at stake.",
+                        effects: { professionalism: 1, tension: 1 },
+                        next: 'careful_consideration'
+                    });
+                    
+                    // Retreat option if tension is low
+                    if (gameState.tension < 4) {
+                        choices.push({
+                            text: "Maybe we should just stay friends and colleagues. It's simpler that way.",
+                            effects: { professionalism: 2, chemistry: -2, tension: -1 },
+                            next: 'friendship_boundary'
+                        });
+                    }
+                    
+                    return choices;
+                }
+            },
+
+            passionate_declaration: {
+                location: "The Point of Passion",
+                alex: {
+                    text: "*voice husky with desire* Jordan, I've tried to be professional, but every time I see you...",
+                    mood: "🔥"
+                },
+                jordan: {
+                    text: "*breathless* Alex, I feel it too. This fire between us... it's consuming everything else.",
+                    mood: "😍"
+                },
+                choices: [
+                    {
+                        text: "*pulls Jordan into a passionate embrace* Then let it burn, Jordan. Let it burn.",
+                        effects: { chemistry: 5, tension: 3, professionalism: -5 },
+                        next: 'fiery_romance'
+                    },
+                    {
+                        text: "Your quarters. Now. Before I lose what little control I have left.",
+                        effects: { chemistry: 4, tension: 4, professionalism: -4 },
+                        next: 'urgent_intimacy'
+                    }
+                ]
+            },
+
+            deep_emotional_moment: {
+                location: "A Tender Revelation",
+                alex: {
+                    text: "*reaches out tentatively* Jordan, you've become so important to me. I never expected...",
+                    mood: "💕"
+                },
+                jordan: {
+                    text: () => {
+                        if (gameState.playfulness > 5) {
+                            return "*takes Alex's hand playfully* Important? Is that your way of saying you're crazy about me?";
+                        } else {
+                            return "*takes Alex's hand gently* You're important to me too, Alex. More than you know.";
+                        }
+                    },
+                    mood: () => gameState.playfulness > 5 ? "😏" : "💖"
+                },
+                choices: () => {
+                    let choices = [
+                        {
+                            text: "I think I'm falling in love with you, Jordan.",
+                            effects: { chemistry: 4, tension: 2, professionalism: -2 },
+                            next: 'love_confession'
+                        }
+                    ];
+                    
+                    if (gameState.tension > 4) {
+                        choices.push({
+                            text: "*steps closer* Show me how important I am to you.",
+                            effects: { chemistry: 3, tension: 3, playfulness: 1 },
+                            next: 'intimate_request'
+                        });
+                    }
+                    
+                    if (gameState.professionalism > 6) {
+                        choices.push({
+                            text: "We need to be smart about this, Jordan. Our careers matter too.",
+                            effects: { chemistry: 1, professionalism: 2, tension: 1 },
+                            next: 'cautious_romance'
+                        });
+                    }
+                    
+                    return choices;
+                }
+            },
+
+            professional_protocol: {
+                location: "Establishing Boundaries",
+                alex: {
+                    text: "*maintains professional distance* We should probably set some guidelines for our interactions.",
+                    mood: "🤔"
+                },
+                jordan: {
+                    text: () => {
+                        if (gameState.chemistry > 4) {
+                            return "*slight disappointment* Guidelines? Alex, you can't regulate feelings with protocols.";
+                        } else {
+                            return "*nods professionally* You're absolutely right. Clear boundaries are essential.";
+                        }
+                    },
+                    mood: () => gameState.chemistry > 4 ? "😔" : "😌"
+                },
+                choices: () => {
+                    let choices = [];
+                    
+                    if (gameState.chemistry > 4) {
+                        choices.push({
+                            text: "You're right, Jordan. Some things can't be contained by regulations.",
+                            effects: { chemistry: 2, professionalism: -2, tension: 2 },
+                            next: 'protocol_abandoned'
+                        });
+                    }
+                    
+                    choices.push({
+                        text: "Professional conduct must be our priority. No exceptions.",
+                        effects: { professionalism: 3, chemistry: -2, tension: -1 },
+                        next: 'strict_professionalism'
+                    });
+                    
+                    if (gameState.playfulness > 4) {
+                        choices.push({
+                            text: "What if we made our own rules? Off-duty fraternization guidelines?",
+                            effects: { playfulness: 2, chemistry: 1, professionalism: 1 },
+                            next: 'creative_compromise'
+                        });
+                    }
+                    
+                    return choices;
+                }
+            },
+
+            spontaneous_adventure: {
+                location: "Embracing the Unknown",
+                alex: {
+                    text: "*grins* You know what, Jordan? You're absolutely right. Let's go on an adventure.",
+                    mood: "😄"
+                },
+                jordan: {
+                    text: "*excited* Now you're talking! What did you have in mind?",
+                    mood: "🤗"
+                },
+                choices: () => {
+                    let choices = [
+                        {
+                            text: "Holodeck adventure program. Just the two of us exploring new worlds.",
+                            effects: { playfulness: 3, chemistry: 2, professionalism: -1 },
+                            next: 'holodeck_adventure'
+                        }
+                    ];
+                    
+                    if (gameState.chemistry > 5) {
+                        choices.push({
+                            text: "How about we start with dinner in my quarters? I'll cook something special.",
+                            effects: { chemistry: 3, playfulness: 2, tension: 1 },
+                            next: 'intimate_dinner'
+                        });
+                    }
+                    
+                    if (gameState.tension > 3) {
+                        choices.push({
+                            text: "Late night stroll through the arboretum? It's beautiful and... private.",
+                            effects: { chemistry: 2, tension: 2, playfulness: 1 },
+                            next: 'romantic_stroll'
+                        });
+                    }
+                    
+                    return choices;
+                }
+            },
+
+            // Missing intermediate scenes
+            careful_consideration: {
+                location: "Weighing Options Carefully",
+                alex: {
+                    text: "*pauses thoughtfully* You're right, Jordan. We have a lot to consider - our careers, the crew, our own hearts.",
+                    mood: "🤔"
+                },
+                jordan: {
+                    text: "*nods slowly* I care about you, Alex, but I also care about doing this right. No rushing, no regrets.",
+                    mood: "💭"
+                },
+                choices: [
+                    {
+                        text: "Then let's take this one day at a time. See where our hearts lead us.",
+                        effects: { chemistry: 2, professionalism: 1, tension: 1 },
+                        next: 'mutual_confession_ending'
+                    },
+                    {
+                        text: "Maybe we should establish some boundaries first. Professional guidelines we both feel comfortable with.",
+                        effects: { professionalism: 3, chemistry: 1 },
+                        next: 'thoughtful_balance'
+                    }
+                ]
+            },
+
+            friendship_boundary: {
+                location: "Choosing Friendship",
+                alex: {
+                    text: "*steps back with a small smile* You're probably right, Jordan. Our friendship is too valuable to risk.",
+                    mood: "😌"
+                },
+                jordan: {
+                    text: "*relief mixed with slight disappointment* Yes... friendship. That's the wise choice. We work well together as colleagues.",
+                    mood: "😔"
+                },
+                choices: [
+                    {
+                        text: "Our friendship means everything to me, Jordan. Let's keep it that way.",
+                        effects: { professionalism: 3, chemistry: -2, tension: -2 },
+                        next: 'friendship_boundary_ending'
+                    },
+                    {
+                        text: "*hesitates* Though... if you ever change your mind about us...",
+                        effects: { chemistry: 1, tension: 1, professionalism: 1 },
+                        next: 'conflicted_ending'
+                    }
+                ]
+            },
+
+            strict_professionalism: {
+                location: "Professional Conduct",
+                alex: {
+                    text: "*maintains formal posture* You're absolutely right, Lieutenant. Professional conduct must be our priority.",
+                    mood: "😐"
+                },
+                jordan: {
+                    text: "*formal nod* Understood, Commander. I'll prepare a report on maintaining appropriate boundaries between officers.",
+                    mood: "😐"
+                },
+                choices: [
+                    {
+                        text: "Excellent. Let's focus on our duties and maintain appropriate distance.",
+                        effects: { professionalism: 4, chemistry: -3, tension: -2 },
+                        next: 'professional_retreat'
+                    }
+                ]
+            },
+
+            // Fixed outcome redirects  
+            fiery_romance: { next: 'point_of_no_return' },
+            urgent_intimacy: { next: 'private_invitation' },
+            love_confession: { next: 'mutual_confession' },
+            intimate_request: { next: 'point_of_no_return' }, // Fixed infinite loop
+            cautious_romance: { next: 'careful_consideration' },
+            protocol_abandoned: { next: 'deep_emotional_moment' },
+            creative_compromise: { next: 'thoughtful_balance' },
+            holodeck_adventure: { next: 'playful_connection' },
+            intimate_dinner: { next: 'romantic_evening' },
+            romantic_stroll: { next: 'garden_romance' },
+            
+            // Auto-redirects for clean story flow
+            starlight_romance: { next: 'relationship_crossroads' },
+            hesitant_moment: { next: 'relationship_crossroads' },
+            intimate_evening: { next: 'relationship_crossroads' },
+            heart_confession: { next: 'relationship_crossroads' },
+            work_tension: { next: 'relationship_crossroads' },
+            toast_to_romance: { next: 'relationship_crossroads' },
+            passionate_moment: { next: 'relationship_crossroads' },
+
+            // BRIDGE ENCOUNTER - Chapter 2
+            bridge_encounter: {
+                location: () => {
+                    return "Main Bridge - Alpha Shift, Shore Leave Day";
+                },
+                alex: {
+                    text: () => {
+                        const outcome = gameState.previousOutcome;
+                        if (outcome === 'point_of_no_return' || outcome === 'private_invitation') {
+                            return "*enters bridge, sees Jordan at the science station* Well, this is... familiar territory. Just the two of us again.";
+                        } else if (outcome === 'mutual_confession' || outcome === 'mutual_confession_ending') {
+                            return "*approaches with a warm smile* Jordan, perfect timing. I was hoping we'd have a chance to talk without the usual chaos.";
+                        } else if (outcome === 'professional_retreat' || outcome === 'thoughtful_balance') {
+                            return "*maintains professional demeanor* Lieutenant Jordan, I didn't expect to see you on duty during shore leave.";
+                        } else if (outcome === 'friendship_boundary_ending' || outcome === 'friendship_choice') {
+                            return "*enters with friendly smile* Jordan! Should have known you'd be here. Some habits never change.";
+                        } else {
+                            return "*pauses upon seeing Jordan* Jordan... I wasn't expecting to see you here during shore leave.";
+                        }
+                    },
+                    mood: () => {
+                        const outcome = gameState.previousOutcome;
+                        if (outcome === 'point_of_no_return' || outcome === 'private_invitation') return "😏";
+                        if (outcome === 'mutual_confession' || outcome === 'mutual_confession_ending') return "😊";
+                        if (outcome === 'professional_retreat' || outcome === 'thoughtful_balance') return "😐";
+                        if (outcome === 'friendship_boundary_ending' || outcome === 'friendship_choice') return "😄";
+                        return "🤔";
+                    }
+                },
+                jordan: {
+                    text: () => {
+                        const outcome = gameState.previousOutcome;
+                        if (outcome === 'point_of_no_return' || outcome === 'private_invitation') {
+                            return "*turns from console with knowing look* Commander... or should I say Alex? *steps closer* The bridge does feel different when it's just us.";
+                        } else if (outcome === 'mutual_confession' || outcome === 'mutual_confession_ending') {
+                            return "*looks up with brightening expression* Alex! I was just thinking about you. About us. This quiet feels... significant.";
+                        } else if (outcome === 'professional_retreat' || outcome === 'thoughtful_balance') {
+                            return "*straightens up formally* Commander Alex. I'm running diagnostics while the senior staff enjoys their shore leave. Always something to optimize.";
+                        } else if (outcome === 'friendship_boundary_ending' || outcome === 'friendship_choice') {
+                            return "*grins and gestures to the empty bridge* Alex! Look at this place without the usual madness. Want to help me with these sensor calibrations?";
+                        } else {
+                            return "*turns from station, expression uncertain* Alex... I've been thinking about our last conversation. About us.";
+                        }
+                    },
+                    mood: () => {
+                        const outcome = gameState.previousOutcome;
+                        if (outcome === 'point_of_no_return' || outcome === 'private_invitation') return "😍";
+                        if (outcome === 'mutual_confession' || outcome === 'mutual_confession_ending') return "💕";
+                        if (outcome === 'professional_retreat' || outcome === 'thoughtful_balance') return "😌";
+                        if (outcome === 'friendship_boundary_ending' || outcome === 'friendship_choice') return "😊";
+                        return "😔";
+                    }
+                },
+                choices: () => {
+                    const outcome = gameState.previousOutcome;
+                    let choices = [];
+
+                    if (outcome === 'point_of_no_return' || outcome === 'private_invitation') {
+                        // Passionate romance continuation
+                        choices = [
+                            {
+                                text: "*moves closer* The captain's chair does have a certain... authority to it. Care to help me test its command capabilities?",
+                                effects: { chemistry: 3, tension: 3, playfulness: 2 },
+                                next: 'bridge_romance_escalation'
+                            },
+                            {
+                                text: "*activates privacy mode* Computer, lock bridge access and disable internal sensors for maintenance.",
+                                effects: { chemistry: 4, tension: 4, professionalism: -3 },
+                                next: 'bridge_private_moment'
+                            },
+                            {
+                                text: "We should be careful, Jordan. The bridge has too many recording systems, even on shore leave.",
+                                effects: { professionalism: 2, tension: 1 },
+                                next: 'bridge_caution'
+                            }
+                        ];
+                    } else if (outcome === 'mutual_confession' || outcome === 'mutual_confession_ending') {
+                        // Sweet romance continuation
+                        choices = [
+                            {
+                                text: "*takes Jordan's hand gently* You know, I've always loved the view from here. But it's better with you beside me.",
+                                effects: { chemistry: 3, playfulness: 1, professionalism: 1 },
+                                next: 'bridge_tender_moment'
+                            },
+                            {
+                                text: "Want to watch the sunset from the observation port? Just the two of us, no duty shifts to interrupt.",
+                                effects: { chemistry: 2, playfulness: 2 },
+                                next: 'bridge_sunset_date'
+                            },
+                            {
+                                text: "*sits in captain's chair, pats armrest* Come here. I want to share something with you about commanding this ship... and my heart.",
+                                effects: { chemistry: 2, tension: 1, playfulness: 1 },
+                                next: 'bridge_command_romance'
+                            }
+                        ];
+                    } else if (outcome === 'professional_retreat' || outcome === 'thoughtful_balance') {
+                        // Professional but with underlying tension
+                        choices = [
+                            {
+                                text: "Your dedication is admirable, Lieutenant. Perhaps I could assist with those diagnostics?",
+                                effects: { professionalism: 2, chemistry: 1 },
+                                next: 'bridge_professional_work'
+                            },
+                            {
+                                text: "*glances around empty bridge* You know, Jordan, sometimes I wonder what we're really protecting ourselves from.",
+                                effects: { tension: 2, chemistry: 1, professionalism: -1 },
+                                next: 'bridge_questioning_boundaries'
+                            },
+                            {
+                                text: "The bridge feels different in this quiet, doesn't it? Less... constrained by protocol.",
+                                effects: { chemistry: 1, tension: 1, playfulness: 1 },
+                                next: 'bridge_subtle_opening'
+                            }
+                        ];
+                    } else if (outcome === 'friendship_boundary_ending' || outcome === 'friendship_choice') {
+                        // Friendship with potential undertones
+                        choices = [
+                            {
+                                text: "*grins and heads to tactical* Absolutely! Though I have to say, you pick the most interesting ways to spend shore leave.",
+                                effects: { playfulness: 2, chemistry: 1 },
+                                next: 'bridge_friendly_work'
+                            },
+                            {
+                                text: "You know what? Forget the diagnostics. When was the last time we just... talked? Really talked?",
+                                effects: { chemistry: 2, playfulness: 1, professionalism: -1 },
+                                next: 'bridge_heart_to_heart'
+                            },
+                            {
+                                text: "*looks around the empty bridge* It's strange being here without the usual chaos. Makes you think about... possibilities.",
+                                effects: { chemistry: 1, tension: 1 },
+                                next: 'bridge_reflective_moment'
+                            }
+                        ];
+                    } else {
+                        // Conflicted/unresolved paths
+                        choices = [
+                            {
+                                text: "Jordan, about what happened between us... I think we need to address the elephant in the room.",
+                                effects: { tension: 2, chemistry: 1 },
+                                next: 'bridge_confrontation'
+                            },
+                            {
+                                text: "*approaches cautiously* How are you feeling about... everything? About us?",
+                                effects: { chemistry: 1, tension: 1 },
+                                next: 'bridge_emotional_check'
+                            },
+                            {
+                                text: "Maybe this is the universe giving us another chance to get things right.",
+                                effects: { chemistry: 2, playfulness: 1 },
+                                next: 'bridge_second_chance'
+                            }
+                        ];
+                    }
+
+                    return choices;
+                }
+            },
+
+            // BRIDGE CONTINUATION SCENES
+
+            // Romantic/Passionate Paths
+            bridge_romance_escalation: {
+                location: "Main Bridge - Command Center",
+                alex: {
+                    text: "*approaches the captain's chair with confident stride* You know, Jordan, I've always wondered what it would feel like to command from here... with the right first officer by my side.",
+                    mood: "😏"
+                },
+                jordan: {
+                    text: "*follows with a sultry smile* Is that what I am now? Your first officer? *trails finger along the chair's armrest* I think I could get used to taking orders from you.",
+                    mood: "🔥"
+                },
+                choices: [
+                    {
+                        text: "*pulls Jordan close* My first officer, my partner, my everything. Now, shall we explore some... creative command strategies?",
+                        effects: { chemistry: 4, tension: 3, playfulness: 2 },
+                        next: 'bridge_passionate_finale'
+                    },
+                    {
+                        text: "*sits in captain's chair, pulls Jordan onto lap* Computer, dim lights to 20% and play something... atmospheric.",
+                        effects: { chemistry: 3, tension: 4, professionalism: -2 },
+                        next: 'bridge_intimate_command'
+                    }
+                ]
+            },
+
+            bridge_private_moment: {
+                location: "Main Bridge - Privacy Mode Engaged",
+                alex: {
+                    text: "*systems chirp as privacy locks engage* There. Now it's just us and the stars. No regulations, no protocols, just... truth.",
+                    mood: "😍"
+                },
+                jordan: {
+                    text: "*moves closer, voice dropping to whisper* You know, Alex, I never imagined the bridge could feel so... intimate. So full of possibilities.",
+                    mood: "💕"
+                },
+                choices: [
+                    {
+                        text: "*cups Jordan's face* The only possibility I care about right now is this moment with you.",
+                        effects: { chemistry: 5, tension: 2, professionalism: -1 },
+                        next: 'bridge_passionate_finale'
+                    },
+                    {
+                        text: "*whispers against Jordan's ear* Tell me what you've been thinking about. About us. About this.",
+                        effects: { chemistry: 3, tension: 3, playfulness: 1 },
+                        next: 'bridge_confession_moment'
+                    }
+                ]
+            },
+
+            bridge_caution: {
+                location: "Main Bridge - Proceeding Carefully",
+                alex: {
+                    text: "*glances at security stations* Even in privacy mode, the bridge has too many eyes. But Jordan... *voice softens* that doesn't change how I feel about you.",
+                    mood: "💭"
+                },
+                jordan: {
+                    text: "*nods understanding* You're right to be careful. But Alex, maybe caution doesn't have to mean distance. We can be smart about this.",
+                    mood: "😌"
+                },
+                choices: [
+                    {
+                        text: "Then let's be smart. My quarters after the shift change? Where we can be... completely ourselves.",
+                        effects: { chemistry: 2, professionalism: 2, tension: 1 },
+                        next: 'bridge_wise_romance'
+                    },
+                    {
+                        text: "*takes Jordan's hand briefly* You're right. We'll find our moments, away from prying sensors and regulations.",
+                        effects: { chemistry: 3, professionalism: 1 },
+                        next: 'bridge_secret_love'
+                    }
+                ]
+            },
+
+            // Sweet Romance Paths
+            bridge_tender_moment: {
+                location: "Main Bridge - Shared Serenity",
+                alex: {
+                    text: "*intertwines fingers with Jordan's* You know what I love most about commanding this ship? It's not the power or the responsibility... it's moments like this, when everything feels perfectly aligned.",
+                    mood: "💕"
+                },
+                jordan: {
+                    text: "*squeezes Alex's hand gently* The universe really did bring us together, didn't it? All those chance encounters, all those almosts... leading to this.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "Every star out there is a witness to what we're building together, Jordan. Something beautiful and lasting.",
+                        effects: { chemistry: 3, playfulness: 1, professionalism: 1 },
+                        next: 'bridge_cosmic_love'
+                    },
+                    {
+                        text: "*brings Jordan's hand to lips* I want to build a life with you among these stars. Will you let me?",
+                        effects: { chemistry: 4, tension: 1, professionalism: 1 },
+                        next: 'bridge_commitment'
+                    }
+                ]
+            },
+
+            bridge_sunset_date: {
+                location: "Main Bridge - Observation Port",
+                alex: {
+                    text: "*leads Jordan to the large viewport* Look at that... a binary star system setting behind that nebula. Beautiful, isn't it?",
+                    mood: "✨"
+                },
+                jordan: {
+                    text: "*leans against Alex's shoulder* It is beautiful. But Alex... *looks up* I think I found something even more beautiful right here beside me.",
+                    mood: "😍"
+                },
+                choices: [
+                    {
+                        text: "*wraps arms around Jordan from behind* Two stars, perfectly balanced, creating something magnificent together. Just like us.",
+                        effects: { chemistry: 3, playfulness: 2 },
+                        next: 'bridge_stellar_metaphor'
+                    },
+                    {
+                        text: "*turns Jordan to face them* Jordan, I want to watch a thousand sunsets with you. Will you stay with me for all of them?",
+                        effects: { chemistry: 4, tension: 1 },
+                        next: 'bridge_commitment'
+                    }
+                ]
+            },
+
+            bridge_command_romance: {
+                location: "Main Bridge - Captain's Chair",
+                alex: {
+                    text: "*sits in captain's chair, gesture for Jordan to come closer* You know what they say about command, Jordan? It's lonely at the top... unless you have the right person to share it with.",
+                    mood: "😊"
+                },
+                jordan: {
+                    text: "*approaches and perches on chair's armrest* And do you? Have the right person? *playful smile* Because I know someone who might be interested in the position.",
+                    mood: "😏"
+                },
+                choices: [
+                    {
+                        text: "*pulls Jordan onto lap* The position is yours, if you want it. First officer of my heart, captain of my soul.",
+                        effects: { chemistry: 3, playfulness: 2, tension: 1 },
+                        next: 'bridge_command_together'
+                    },
+                    {
+                        text: "*stands and offers chair* Actually, why don't you try it? I want to see how you look in command.",
+                        effects: { chemistry: 2, playfulness: 3, professionalism: 1 },
+                        next: 'bridge_role_reversal'
+                    }
+                ]
+            },
+
+            // Professional/Thoughtful Paths
+            bridge_professional_work: {
+                location: "Main Bridge - Working Together",
+                alex: {
+                    text: "*moves to adjacent console* Your diagnostic protocols are impressive, Jordan. I can see why you're considered one of our best officers.",
+                    mood: "😌"
+                },
+                jordan: {
+                    text: "*glances over with small smile* Thank you, Commander. Though I have to admit, working alongside you makes even diagnostics feel... significant.",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "*pauses work, looks directly at Jordan* You know, we make a good team. In all respects.",
+                        effects: { chemistry: 2, professionalism: 1 },
+                        next: 'bridge_partnership_recognition'
+                    },
+                    {
+                        text: "Your dedication inspires me, Jordan. Both professionally... and personally.",
+                        effects: { chemistry: 1, professionalism: 2, tension: 1 },
+                        next: 'bridge_professional_confession'
+                    }
+                ]
+            },
+
+            bridge_questioning_boundaries: {
+                location: "Main Bridge - Moment of Reflection",
+                alex: {
+                    text: "*leans against console, studying Jordan* Sometimes I wonder if we're protecting ourselves from the wrong things. Fear of breaking protocol... or fear of what we might discover if we don't.",
+                    mood: "🤔"
+                },
+                jordan: {
+                    text: "*stops working, meets Alex's gaze* That's... a dangerous question, Alex. Are you sure you want to know the answer?",
+                    mood: "💭"
+                },
+                choices: [
+                    {
+                        text: "Maybe I'm tired of safe, Jordan. Maybe it's time for dangerous questions.",
+                        effects: { chemistry: 3, tension: 2, professionalism: -1 },
+                        next: 'bridge_breaking_barriers'
+                    },
+                    {
+                        text: "You're right to be cautious. Some boundaries exist for good reasons. But... *steps closer* what if we could find a middle ground?",
+                        effects: { chemistry: 2, tension: 1, professionalism: 1 },
+                        next: 'bridge_careful_exploration'
+                    }
+                ]
+            },
+
+            bridge_subtle_opening: {
+                location: "Main Bridge - Testing Waters",
+                alex: {
+                    text: "*gestures around the empty bridge* It's strange, isn't it? This place usually feels so formal, so constrained by duty. But now... it feels like anything is possible.",
+                    mood: "😌"
+                },
+                jordan: {
+                    text: "*sets down tools, turns fully toward Alex* Anything? *slight smile* That's a broad statement, Commander. Care to be more... specific?",
+                    mood: "😏"
+                },
+                choices: [
+                    {
+                        text: "*moves closer* Well, for instance, I could tell you that I've been thinking about you. About us. Would that be... appropriate?",
+                        effects: { chemistry: 2, tension: 2, professionalism: -1 },
+                        next: 'bridge_gentle_confession'
+                    },
+                    {
+                        text: "I think you know exactly what I mean, Jordan. The question is... are you interested in exploring those possibilities?",
+                        effects: { chemistry: 2, tension: 1, playfulness: 1 },
+                        next: 'bridge_invitation_to_explore'
+                    }
+                ]
+            },
+
+            // Friendship Paths
+            bridge_friendly_work: {
+                location: "Main Bridge - Collaborative Spirit",
+                alex: {
+                    text: "*starts working on tactical systems* You know, Jordan, this is why we work so well together. You always know how to make even the mundane feel... meaningful.",
+                    mood: "😊"
+                },
+                jordan: {
+                    text: "*grins while adjusting sensors* That's because everything IS meaningful when you have the right people to share it with. *glances over* Even sensor calibrations.",
+                    mood: "😄"
+                },
+                choices: [
+                    {
+                        text: "*laughs* Only you could make me excited about sensor calibrations, Jordan. You're... special.",
+                        effects: { chemistry: 1, playfulness: 2 },
+                        next: 'bridge_friendship_deepening'
+                    },
+                    {
+                        text: "You know what? Let's make this interesting. Whoever finishes their diagnostics first gets to choose our next shore leave activity.",
+                        effects: { playfulness: 3, chemistry: 1 },
+                        next: 'bridge_playful_competition'
+                    }
+                ]
+            },
+
+            bridge_heart_to_heart: {
+                location: "Main Bridge - Deeper Connection",
+                alex: {
+                    text: "*abandons console, sits on bridge railing* Jordan, we spend so much time talking about duty, diagnostics, protocols... when was the last time we talked about dreams?",
+                    mood: "💭"
+                },
+                jordan: {
+                    text: "*joins Alex on the railing* Dreams? *thoughtful pause* You know, I used to dream about commanding a starship. But lately... *looks at Alex* my dreams have been more... personal.",
+                    mood: "😌"
+                },
+                choices: [
+                    {
+                        text: "Personal dreams can be the most important ones, Jordan. Care to share what yours involve?",
+                        effects: { chemistry: 2, playfulness: 1, professionalism: -1 },
+                        next: 'bridge_dream_sharing'
+                    },
+                    {
+                        text: "*quietly* Do any of those personal dreams... involve me?",
+                        effects: { chemistry: 3, tension: 2 },
+                        next: 'bridge_friendship_boundary_test'
+                    }
+                ]
+            },
+
+            bridge_reflective_moment: {
+                location: "Main Bridge - Contemplating Possibilities",
+                alex: {
+                    text: "*stares out at the stars* You're right about possibilities, Jordan. Sometimes I look out there and wonder what we're really searching for among the stars.",
+                    mood: "✨"
+                },
+                jordan: {
+                    text: "*moves to stand beside Alex* Maybe we're not searching for something out there. Maybe we're searching for something... *glances sideways* closer to home.",
+                    mood: "💭"
+                },
+                choices: [
+                    {
+                        text: "*turns to face Jordan* And what if we found it? What if what we're looking for has been right here all along?",
+                        effects: { chemistry: 3, tension: 1 },
+                        next: 'bridge_realization_moment'
+                    },
+                    {
+                        text: "The universe has a funny way of putting exactly what you need right in front of you, doesn't it?",
+                        effects: { chemistry: 2, playfulness: 1 },
+                        next: 'bridge_cosmic_destiny'
+                    }
+                ]
+            },
+
+            // Conflicted/Second Chance Paths
+            bridge_confrontation: {
+                location: "Main Bridge - Addressing the Past",
+                alex: {
+                    text: "*crosses arms, but expression is gentle* Jordan, we can't keep dancing around what happened between us. The tension, the almost-moments... we need to talk about it.",
+                    mood: "😐"
+                },
+                jordan: {
+                    text: "*sighs, sets down equipment* You're right. I've been avoiding this conversation because... *meets Alex's eyes* because I'm scared of what it might mean.",
+                    mood: "😔"
+                },
+                choices: [
+                    {
+                        text: "*softens* I'm scared too, Jordan. But maybe being scared together is better than being confused apart.",
+                        effects: { chemistry: 2, tension: 1, professionalism: 1 },
+                        next: 'bridge_mutual_honesty'
+                    },
+                    {
+                        text: "What are you scared of, Jordan? Because maybe I'm scared of the same thing.",
+                        effects: { chemistry: 1, tension: 2 },
+                        next: 'bridge_fear_confession'
+                    }
+                ]
+            },
+
+            bridge_emotional_check: {
+                location: "Main Bridge - Gentle Inquiry",
+                alex: {
+                    text: "*approaches slowly* Jordan, I can see something's weighing on you. About us, about what we said... or didn't say. How are you processing all of this?",
+                    mood: "😟"
+                },
+                jordan: {
+                    text: "*looks up with vulnerable expression* Honestly? I'm confused, Alex. Part of me wants to go back to how things were, and part of me wants to... explore what could be.",
+                    mood: "😔"
+                },
+                choices: [
+                    {
+                        text: "*gently* There's no rush, Jordan. We can take this at whatever pace feels right for both of us.",
+                        effects: { chemistry: 2, professionalism: 2 },
+                        next: 'bridge_patient_approach'
+                    },
+                    {
+                        text: "What if I told you I'm feeling exactly the same way? Confused, torn... but hopeful?",
+                        effects: { chemistry: 2, tension: 1 },
+                        next: 'bridge_shared_confusion'
+                    }
+                ]
+            },
+
+            bridge_second_chance: {
+                location: "Main Bridge - New Beginnings",
+                alex: {
+                    text: "*looks around the empty bridge* Here we are again, Jordan. Same place, same people... but maybe this time we can get it right.",
+                    mood: "😌"
+                },
+                jordan: {
+                    text: "*small hopeful smile* A second chance? *moves closer* What would 'getting it right' look like to you, Alex?",
+                    mood: "😊"
+                },
+                choices: [
+                    {
+                        text: "It would look like honesty. No more dancing around our feelings, no more 'what ifs.' Just... truth.",
+                        effects: { chemistry: 3, professionalism: 1 },
+                        next: 'bridge_honest_restart'
+                    },
+                    {
+                        text: "*takes Jordan's hand* It would look like this. Simple gestures, genuine connection, and seeing where it leads us.",
+                        effects: { chemistry: 2, playfulness: 1, tension: 1 },
+                        next: 'bridge_gentle_restart'
+                    }
+                ]
+            }
+        };
+
+        const outcomes = {
+            point_of_no_return: {
+                title: "🌟 PASSIONATE ENCOUNTER 🌟",
+                text: "The tension finally breaks as Alex and Jordan give in to their undeniable attraction. Professional boundaries dissolve in a moment of pure chemistry. Their relationship will never be the same, but some things are worth the risk. The stars themselves seem to approve of this cosmic connection.",
+                type: "romantic"
+            },
+            private_invitation: {
+                title: "🔥 STEAMY RESOLUTION 🔥",
+                text: "Unable to resist any longer, the two officers find themselves behind closed doors where words give way to actions. The universe has a way of bringing together those meant to be, even aboard a starship light-years from Earth. Tomorrow will bring new challenges, but tonight belongs to them.",
+                type: "passionate"
+            },
+            mutual_confession: {
+                title: "💕 HEARTFELT CONNECTION 💕",
+                text: "Sometimes the strongest bonds are forged in honesty. Alex and Jordan's admission of their feelings creates a new understanding between them. They'll navigate this carefully, but their connection is undeniable. Love finds a way, even among the stars.",
+                type: "emotional"
+            },
+            professional_retreat: {
+                title: "⭐ PROFESSIONAL RESPECT ⭐",
+                text: "Duty before desire. Both officers recognize the importance of maintaining professional boundaries, but the mutual respect and underlying attraction remain. Perhaps in another time, another place... The stars keep their secrets.",
+                type: "respectful"
+            },
+            sudden_retreat: {
+                title: "🌌 MISSED OPPORTUNITY 🌌",
+                text: "Fear of consequences leads to a step back from the brink. Sometimes the greatest regrets come from chances not taken. The tension remains, unresolved, waiting for another moment when courage might triumph over caution.",
+                type: "regretful"
+            },
+            conflicted_ending: {
+                title: "💭 UNRESOLVED TENSION 💭",
+                text: "Some feelings are too complex to resolve in a single conversation. Alex and Jordan part ways with their connection acknowledged but unexplored. Time will tell if duty or desire wins in the end. The story remains unfinished...",
+                type: "unresolved"
+            },
+            mutual_confession_ending: {
+                title: "💖 LOVE FINDS A WAY 💖",
+                text: "True love doesn't always require grand gestures. Sometimes it's found in quiet moments and honest words. Alex and Jordan have chosen to build something real together, taking it one day at a time. Their love story is just beginning.",
+                type: "romantic"
+            },
+            careful_consideration: {
+                title: "⚖️ THOUGHTFUL APPROACH ⚖️",
+                text: "Some relationships are worth taking slowly. Alex and Jordan recognize the complexity of their situation and choose to proceed with both passion and wisdom. Their bond deepens with mutual respect and understanding.",
+                type: "balanced"
+            },
+            friendship_choice: {
+                title: "🤝 VALUED FRIENDSHIP 🤝",
+                text: "Not every connection needs to be romantic to be meaningful. Alex and Jordan choose to maintain their friendship and professional respect, but the underlying spark remains. Sometimes the best relationships are built on solid foundations.",
+                type: "friendship"
+            },
+            thoughtful_balance: {
+                title: "🌟 CREATIVE HARMONY 🌟",
+                text: "Innovation in love, just as in exploration. Alex and Jordan create their own rules for balancing duty and desire. Their relationship becomes a model for how two professionals can honor both their hearts and their responsibilities.",
+                type: "innovative"
+            },
+            playful_connection: {
+                title: "🎭 ADVENTUROUS ROMANCE 🎭",
+                text: "Love should be fun, and Alex and Jordan embrace that philosophy. Their relationship blossoms through shared adventures and playful moments, proving that the best romances are built on laughter and joy.",
+                type: "playful"
+            },
+            romantic_evening: {
+                title: "🕯️ INTIMATE CONNECTION 🕯️",
+                text: "Sometimes the most romantic moments happen in the quiet spaces between duty shifts. Alex and Jordan discover that true intimacy comes from sharing not just passion, but the small, precious moments of daily life.",
+                type: "intimate"
+            },
+            garden_romance: {
+                title: "🌺 BLOSSOMING LOVE 🌺",
+                text: "Like the plants in the ship's arboretum, love grows when tended with care. Alex and Jordan's relationship flourishes in the peaceful spaces they create together, away from the demands of starship life.",
+                type: "gentle"
+            },
+            friendship_boundary_ending: {
+                title: "🤝 LASTING FRIENDSHIP 🤝",
+                text: "Sometimes the greatest love is knowing when to preserve what you have. Alex and Jordan choose to honor their deep friendship over romantic uncertainty. Their bond remains strong, built on mutual respect and shared experiences among the stars.",
+                type: "friendship"
+            }
+        };
+
+        function updateStats() {
+            document.getElementById('tension').textContent = gameState.tension;
+            document.getElementById('chemistry').textContent = gameState.chemistry;
+            document.getElementById('professionalism').textContent = gameState.professionalism;
+            document.getElementById('playfulness').textContent = gameState.playfulness;
+        }
+
+        function renderScene(sceneName) {
+            const scene = scenes[sceneName];
+            if (!scene) {
+                renderOutcome(sceneName);
+                return;
+            }
+
+            const container = document.getElementById('dialog-container');
+            
+            // Handle dynamic location
+            const location = typeof scene.location === 'function' ? scene.location() : scene.location;
+            let html = `<div class="location">${location}</div>`;
+            
+            // Check if scene has dialog or just redirects
+            if (scene.alex && scene.jordan) {
+                // Handle dynamic text and mood for Alex
+                const alexText = typeof scene.alex.text === 'function' ? scene.alex.text() : scene.alex.text;
+                const alexMood = typeof scene.alex.mood === 'function' ? scene.alex.mood() : scene.alex.mood;
+                
+                html += `
+                    <div class="character alex">
+                        <div class="mood-indicator">${alexMood}</div>
+                        <div class="character-name">Commander Alex Chen</div>
+                        <div>${alexText}</div>
+                    </div>
+                `;
+                
+                // Handle dynamic text and mood for Jordan
+                const jordanText = typeof scene.jordan.text === 'function' ? scene.jordan.text() : scene.jordan.text;
+                const jordanMood = typeof scene.jordan.mood === 'function' ? scene.jordan.mood() : scene.jordan.mood;
+                
+                html += `
+                    <div class="character jordan">
+                        <div class="mood-indicator">${jordanMood}</div>
+                        <div class="character-name">Lieutenant Jordan Rivera</div>
+                        <div>${jordanText}</div>
+                    </div>
+                `;
+            }
+            
+            // Handle dynamic choices
+            if (scene.choices) {
+                const choices = typeof scene.choices === 'function' ? scene.choices() : scene.choices;
+                html += '<div class="choices">';
+                choices.forEach((choice, index) => {
+                    const weightClass = choice.weight && (typeof choice.weight === 'function' ? choice.weight() : choice.weight) ? 'weighted' : '';
+                    html += `<button class="choice ${weightClass}" onclick="makeChoice(${index})">${choice.text}</button>`;
+                });
+                html += '</div>';
+                
+                // Store current choices in gameState for makeChoice function
+                gameState.currentChoices = choices;
+            } else if (scene.next) {
+                // Auto-redirect scene
+                setTimeout(() => {
+                    gameState.currentScene = scene.next;
+                    renderScene(scene.next);
+                }, 1000);
+                return;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function renderOutcome(outcomeName) {
+            const outcome = outcomes[outcomeName];
+            if (!outcome) return;
+
+            const container = document.getElementById('dialog-container');
+            container.innerHTML = `
+                <div class="outcome">
+                    <h2>${outcome.title}</h2>
+                    <p>${outcome.text}</p>
+                    <button class="restart" onclick="continueTobridge('${outcomeName}')">Continue to Bridge Encounter</button>
+                    <button class="restart" onclick="restartGame()" style="background: linear-gradient(135deg, #666, #444); margin-left: 10px;">Begin New Encounter</button>
+                </div>
+            `;
+        }
+
+        function continueTobridge(previousOutcome) {
+            // Store the previous relationship outcome
+            gameState.previousOutcome = previousOutcome;
+            gameState.currentScene = 'bridge_encounter';
+            
+            // Set new scene setup
+            gameState.bridgeChapter = true;
+            
+            renderScene('bridge_encounter');
+        }
+
+        function makeChoice(choiceIndex) {
+            // Use stored choices from renderScene for dynamic choice handling
+            const choices = gameState.currentChoices || scenes[gameState.currentScene].choices;
+            const choice = Array.isArray(choices) ? choices[choiceIndex] : choices;
+            
+            // Apply effects
+            if (choice.effects) {
+                Object.keys(choice.effects).forEach(key => {
+                    gameState[key] += choice.effects[key];
+                    // Keep stats within reasonable bounds
+                    gameState[key] = Math.max(0, Math.min(20, gameState[key]));
+                });
+            }
+            
+            // Add to history
+            gameState.history.push({
+                scene: gameState.currentScene,
+                choice: choiceIndex,
+                text: choice.text
+            });
+            
+            // Update current scene
+            gameState.currentScene = choice.next;
+            
+            // Update display
+            updateStats();
+            
+            // Add delay for dramatic effect
+            setTimeout(() => {
+                renderScene(gameState.currentScene);
+            }, 500);
+        }
+
+        function restartGame() {
+            gameState = {
+                tension: 0,
+                chemistry: 0,
+                professionalism: 10,
+                playfulness: 5,
+                currentScene: 'intro',
+                history: [],
+                alexMood: 'neutral',
+                jordanMood: 'neutral'
+            };
+            updateStats();
+            renderScene('intro');
+        }
+
+        // Initialize game
+        updateStats();
+        renderScene('intro');
+    </script>
+</body>
+</html>
