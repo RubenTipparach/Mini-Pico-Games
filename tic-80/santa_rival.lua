@@ -1,27 +1,3 @@
--- title:  Santa's Rival Inc.
--- author: Claude & User
--- desc:   Christmas Incremental Game - Compete with Santa!
--- script: lua
-
--- =====================
--- GAME DESIGN DOCUMENT
--- =====================
--- Goal: Build a toy company to rival Santa Claus
--- Target playtime: ~1 hour
--- Currency: Holiday Cheer (HC)
---
--- PROGRESSION PHASES:
--- Phase 1 (0-5 min): Manual clicking - assemble toys, deliver by hand
--- Phase 2 (5-15 min): Hire first elves, unlock basic factory
--- Phase 3 (15-30 min): Multiple factories, drone delivery, marketing
--- Phase 4 (30-45 min): Advanced tech, mega factories, viral campaigns
--- Phase 5 (45-60 min): Final push to beat Santa's score
---
--- WIN CONDITION: Reach 1,000,000 Holiday Cheer before Santa
-
--- =====================
--- GAME STATE
--- =====================
 local game = {
     cheer = 0,           -- Main currency: Holiday Cheer
     toys = 0,            -- Toys in warehouse
@@ -1037,5 +1013,3 @@ function TIC()
     draw_header_icons()
     draw_decorations()
 end
-
--- Sprites are initialized via Lua poke() in init_sprites()
