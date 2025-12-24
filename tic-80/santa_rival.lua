@@ -435,12 +435,8 @@ local prev_btn = false
 local mx, my, mb, pmb = 0, 0, false, false
 
 function handle_input()
-    -- Mouse input
+    -- Mouse input only
     mx, my, mb = mouse()
-
-    -- Tab switching with keyboard
-    if btnp(0) then game.tab = math.max(1, game.tab - 1) end -- Left
-    if btnp(1) then game.tab = math.min(4, game.tab + 1) end -- Right
 
     -- Mouse clicks
     if mb and not pmb then
@@ -547,10 +543,8 @@ end
 function draw_game()
     cls(0) -- Black background
 
-    -- Draw snowflakes
-    for _, s in ipairs(game.snowflakes) do
-        pix(s.x, s.y, 12)
-    end
+    -- Draw snow BEHIND everything
+    draw_snow_background()
 
     -- Header bar
     rect(0, 0, 240, 12, 1)
@@ -919,15 +913,22 @@ function draw_header_icons()
 end
 
 function draw_decorations()
-    -- Christmas trees in corners
+    -- Christmas trees in corners (drawn in UI layer)
     if game.phase >= 2 then
         spr(SPR.TREE, 232, 14)
     end
     if game.phase >= 3 then
         spr(SPR.TREE, 0, 115)
     end
+end
 
-    -- Animated snowflakes as sprites (some of them)
+-- Draw snow BEFORE UI (called early in draw_game)
+function draw_snow_background()
+    -- Pixel snowflakes
+    for _, s in ipairs(game.snowflakes) do
+        pix(s.x, s.y, 12)
+    end
+    -- Sprite snowflakes (every 5th one, larger flakes)
     for i, s in ipairs(game.snowflakes) do
         if i % 5 == 0 and s.y < 120 then
             spr(SPR.SNOWFLAKE, s.x, s.y)
