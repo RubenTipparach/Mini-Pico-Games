@@ -748,23 +748,101 @@ end
 -- =====================
 -- SPRITE CONSTANTS
 -- =====================
+-- SPRITE DATA & INITIALIZATION
+-- =====================
+-- TIC-80 sprite memory starts at 0x4000
+-- Each sprite is 32 bytes (8x8 pixels, 4 bits per pixel)
+
+-- Sprite data as hex strings (each char = 1 pixel, 0-f = palette color)
+local SPRITE_DATA = {
+    -- 001: Production Elf (green hat, white face, green body)
+    [1] = "0006600000666600006cc60000cccc0006666660066006600060060000600600",
+    -- 002: Delivery Elf (blue variant)
+    [2] = "0009900000999900009cc90000cccc0009999990099009900090090000900900",
+    -- 003: Santa (red suit, white beard, black boots)
+    [3] = "00ccc000002c2000002cc20000cccc0002cccc20022222200020020000f00f00",
+    -- 004: Teddy Bear (orange fur, button eyes)
+    [4] = "0330033003333330333003333333333303333330333333330330033003300330",
+    -- 005: Robot (gray body, blue eyes)
+    [5] = "00dddd000da99ad00ddddddd0dddddd00d9dd9d00ddddddd00d00d0000d00d00",
+    -- 006: Toy Train (green engine, wheels)
+    [6] = "000000000066666006f66f6006666660066666600060060006666660000ff000",
+    -- 007: Doll (orange hair, red dress)
+    [7] = "00033000003cc30003cccc300c3cc3c003cccc3000333300003003000f300f30",
+    -- 008: Gift Box (yellow bow, red wrap)
+    [8] = "0004400000444400044224402222422222242222222422220222222000000000",
+    -- 009: Bicycle
+    [9] = "0000f0000000ff00000ffff00ff0f0ff0ffffff000ffff0000f00f00f000000f",
+    -- 010: Van (gray body)
+    [10] = "00eeee000eeeeee0eeeeeeeeee9ee9eeeeeeeeee0eeeeee000eeee0000e00e00",
+    -- 011: Drone (cyan, propellers)
+    [11] = "000bb0000bbbbbb0bb0bb0bbbbb99bbbbbbbbbbbb0bbbb0b0b0bb0b000b00b00",
+    -- 012: Rocket (yellow body, flames)
+    [12] = "00044000004444000444444044449444044444400444444004040400003ee300",
+    -- 013: Teleporter (cyan swirl)
+    [13] = "0b0bb0b0bbbbbbbbbbbbbbbbbb0bb0bb0bbbbbb00b0bb0b000bbbb0000b00b00",
+    -- 014: Star (yellow sparkle)
+    [14] = "00044000004444000444444004ffff40044ff44004ffff400044440000044000",
+    -- 015: Christmas Tree (green with ornaments)
+    [15] = "00066000006666000665566065666656666666666566665600666600006006",
+    -- 048: Snowflake
+    [48] = "000c000000ccc0000c0c0c00000c0000000c00000c0c0c0000ccc000000c0000",
+    -- 049: Heart
+    [49] = "00000000066006600666666006666660006666000006600000000000000000",
+    -- 050: Coin
+    [50] = "00044000004f4400044ff44004ffff4004ffff400444444000044000000440",
+    -- 051: Megaphone
+    [51] = "000ee0000eeeeee0eec00cee0eeeeee00eeeeee00ee00ee00e0000e000e00e00",
+    -- 052: TV
+    [52] = "00eeee000e0ee0e00eeeeee00e0ee0e000eeee00000ee0000000000000000000",
+    -- 053: Phone
+    [53] = "00099000009999000999999009a99a9009999990009999000009900000099000",
+}
+
+-- Convert hex char to number
+function hex_to_num(c)
+    local n = string.byte(c)
+    if n >= 48 and n <= 57 then return n - 48 end      -- 0-9
+    if n >= 97 and n <= 102 then return n - 87 end     -- a-f
+    if n >= 65 and n <= 70 then return n - 55 end      -- A-F
+    return 0
+end
+
+-- Initialize sprites by poking data into VRAM
+function init_sprites()
+    for sprite_id, hex_data in pairs(SPRITE_DATA) do
+        local base_addr = 0x4000 + (sprite_id * 32)
+        for row = 0, 7 do
+            for col = 0, 3 do
+                local idx = row * 8 + col * 2 + 1
+                local hi = hex_to_num(hex_data:sub(idx, idx))
+                local lo = hex_to_num(hex_data:sub(idx + 1, idx + 1))
+                -- TIC-80 stores 2 pixels per byte, low nibble first
+                local byte_val = lo * 16 + hi
+                poke(base_addr + row * 4 + col, byte_val)
+            end
+        end
+    end
+end
+
+-- Initialize sprites on load
+init_sprites()
+
+-- =====================
+-- SPRITE CONSTANTS
+-- =====================
 SPR = {
     -- Characters (8x8)
-    ELF_PROD = 1,      -- Production elf
-    ELF_DEL = 2,       -- Delivery elf
-    SANTA = 3,         -- Santa competitor
+    ELF_PROD = 1,
+    ELF_DEL = 2,
+    SANTA = 3,
 
     -- Toys (8x8)
-    TEDDY = 4,         -- Teddy bear
-    ROBOT = 5,         -- Robot toy
-    TRAIN = 6,         -- Toy train
-    DOLL = 7,          -- Doll
-    GIFT = 8,          -- Wrapped present
-
-    -- Buildings (16x16 = 4 sprites each)
-    WORKSHOP = 16,     -- 16,17,32,33
-    FACTORY = 20,      -- 20,21,36,37
-    MEGAPLANT = 24,    -- 24,25,40,41
+    TEDDY = 4,
+    ROBOT = 5,
+    TRAIN = 6,
+    DOLL = 7,
+    GIFT = 8,
 
     -- Vehicles (8x8)
     BICYCLE = 9,
@@ -774,8 +852,8 @@ SPR = {
     TELEPORT = 13,
 
     -- Icons (8x8)
-    STAR = 14,         -- Cheer icon
-    TREE = 15,         -- Christmas tree
+    STAR = 14,
+    TREE = 15,
     SNOWFLAKE = 48,
     HEART = 49,
     COIN = 50,
@@ -960,49 +1038,4 @@ function TIC()
     draw_decorations()
 end
 
--- =====================
--- METADATA (for TIC-80)
--- =====================
--- <TILES>
--- 001:0006600000666600006cc60000cccc0006666660066006600060060000600600
--- 002:0009900000999900009cc90000cccc0009999990099009900090090000900900
--- 003:00ccc000002c2000002cc20000cccc0002cccc20022222200020020000f00f00
--- 004:0330033003333330333cc3333333333303333330333333330330033003300330
--- 005:00dddd000da99ad00ddddddd0dddddd00d9dd9d00ddddddd00d00d0000d00d00
--- 006:000000000066666006f66f6006666660066666600060060006666660000ff000
--- 007:00033000003cc30003cccc300c3cc3c003cccc3000333300003003000f300f30
--- 008:0004400000444400044224402222422222242222222422220222222000000000
--- 009:0000f0000000ff00000ffff00ff0f0ff0ffffff000ffff0000f00f00f000000f
--- 010:00eeee000eeeeee0eeeeeeeeee9ee9eeeeeeeeee0eeeeee000eeee0000e00e00
--- 011:000bb0000bbbbbb0bb0bb0bbbbb99bbbbbbbbbbbb0bbbb0b0b0bb0b000b00b00
--- 012:00044000004444000444444044449444044444400444444004040400003ee300
--- 013:0b0bb0b0bbbbbbbbbbbbbbbbbb0bb0bb0bbbbbb00b0bb0b000bbbb0000b00b00
--- 014:00044000004444000444444004ffff40044ff44004ffff400044440000044000
--- 015:00055000005555000555555056565656555555550555555000555500005005
--- 016:0000000f000000ff00000f6f0000f666000f666600f6666606f6565666f55556
--- 017:f0000000ff000000f6f000006660000066600000666600006565060065555f66
--- 032:66f5555606f5555500f6666500066665000006650000006500000005000000
--- 033:65555f6665555f6056666f005666600056600000560000005000000000000000
--- 020:00000eee0000eeee000eeeee00eeeeee0eeeefee0eeeeffeeeeeffffeeeeefff
--- 021:eee00000eeee0000eeeee000eeeeee00eefeeee0effeeee0ffffeeeefffeeee
--- 036:eeeeffffeeeeefff0eeeeeff00eeeeee000eeeee0000eeee00000eee00000000
--- 037:ffffeeeefffeeeeffeeeee0eeeeeee00eeeee000eeee0000eee0000000000000
--- 024:000000dd00000ddd0000dddd000ddddd00dddddd0ddddddd0ddddfddddddffdd
--- 025:dd000000ddd00000dddd0000ddddd000dddddd00ddddddd0ddfdddd0ddffdddd
--- 040:ddddffddddddfdd00ddddd0000dddd00000ddd000000dd0000000d0000000000
--- 041:ddffddddddfdddddddddd00ddddd0000ddd00000dd0000000d00000000000000
--- 048:000c000000ccc0000c0c0c00000c0000000c00000c0c0c0000ccc000000c0000
--- 049:00022000022222200222222022c22c2202222220002222000002200000022000
--- 050:00044000004f4400044ff44004ffff4004ffff400444444000044000000440
--- 051:000ee0000eeeeee0eec00cee0eeeeee00eeeeee00ee00ee00e0000e000e00e00
--- 052:00eeee000e0ee0e00eeeeee00e0ee0e000eeee00000ee0000000000000000000
--- 053:00099000009999000999999009a99a9009999990009999000009900000099000
--- </TILES>
-
--- <SPRITES>
--- 000:00000000000000000000000000000000000000000000000000000000000000
--- </SPRITES>
-
--- <PALETTE>
--- 000:1a1c2c5d275db13e53ef7d57ffcd75a7f07038b76425717929366f3b5dc941a6f673eff7f4f4f494b0c2566c86333c57
--- </PALETTE>
+-- Sprites are initialized via Lua poke() in init_sprites()
