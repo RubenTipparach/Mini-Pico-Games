@@ -11,7 +11,13 @@ local game = {
     tab = 1,             -- Current UI tab (1=Produce, 2=Deliver, 3=Market, 4=Upgrade)
     messages = {},       -- Floating messages
     snowflakes = {},     -- Background snow
+    scroll = {0, 0, 0, 0}, -- Scroll offset for each tab
 }
+
+-- UI constants
+local UI_TOP = 14        -- Content starts below header
+local UI_BOTTOM = 118    -- Content ends above status bar (126-8)
+local UI_HEIGHT = UI_BOTTOM - UI_TOP
 
 -- =====================
 -- PRODUCTION SYSTEM
@@ -411,8 +417,16 @@ local prev_btn = false
 local mx, my, mb, pmb = 0, 0, false, false
 
 function handle_input()
-    -- Mouse input only
-    mx, my, mb = mouse()
+    -- Mouse input only (mx, my, mb, scrollx, scrolly, left, middle, right)
+    local scrollx, scrolly
+    mx, my, mb, scrollx, scrolly = mouse()
+
+    -- Scroll wheel for scrolling content
+    if scrolly and scrolly ~= 0 then
+        local scroll_amount = scrolly * 14
+        game.scroll[game.tab] = game.scroll[game.tab] - scroll_amount
+        if game.scroll[game.tab] < 0 then game.scroll[game.tab] = 0 end
+    end
 
     -- Mouse clicks
     if mb and not pmb then
@@ -435,36 +449,51 @@ function handle_tab_click()
     local y_offset = 24
     local item_height = 14
 
+    -- Only handle clicks in content area
+    if my < UI_TOP or my >= UI_BOTTOM then return end
+
     if game.tab == 1 then -- Production
-        -- Manual produce button
-        if my >= 20 and my < 34 and mx < 100 then
+        local scroll = game.scroll[1]
+        local adj_my = my + scroll  -- Adjust for scroll
+
+        -- Manual produce button (y = UI_TOP + 10)
+        local btn_y = UI_TOP + 10
+        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
             click_produce()
         end
         -- Buy elf button
-        if my >= 36 and my < 50 and mx < 100 then
+        btn_y = btn_y + 14
+        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
             buy_prod_elf()
         end
-        -- Factory buttons
+        -- Factory buttons (after header)
+        local factory_start = btn_y + 14 + 10
         for i, f in ipairs(production.factories) do
-            local y = 52 + (i-1) * 14
-            if my >= y and my < y + 14 then
+            local y = factory_start + (i-1) * 12
+            if adj_my >= y and adj_my < y + 12 then
                 buy_factory(i)
             end
         end
 
     elseif game.tab == 2 then -- Delivery
+        local scroll = game.scroll[2]
+        local adj_my = my + scroll
+
         -- Manual deliver button
-        if my >= 20 and my < 34 and mx < 100 then
+        local btn_y = UI_TOP + 10
+        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
             click_deliver()
         end
         -- Buy delivery elf
-        if my >= 36 and my < 50 and mx < 100 then
+        btn_y = btn_y + 14
+        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
             buy_del_elf()
         end
         -- Delivery methods
+        local method_start = btn_y + 14 + 10
         for i, m in ipairs(delivery.methods) do
-            local y = 52 + (i-1) * 14
-            if my >= y and my < y + 14 then
+            local y = method_start + (i-1) * 12
+            if adj_my >= y and adj_my < y + 12 then
                 buy_method(i)
             end
         end
@@ -534,14 +563,7 @@ function draw_game()
         print(t, x + 8, 2, 0)
     end
 
-    -- Stats bar at bottom
-    rectb(0, 126, 240, 10, 6)
-    print("HC:"..format_num(game.cheer), 2, 128, 12)
-    print("Toys:"..format_num(game.toys), 60, 128, 11)
-    print("Santa:"..format_num(game.santa_cheer), 130, 128, 8)
-    print(string.format("%d:%02d", math.floor(game.time/60), game.time%60), 210, 128, 6)
-
-    -- Draw current tab
+    -- Draw current tab content first
     if game.tab == 1 then
         draw_production()
     elseif game.tab == 2 then
@@ -551,6 +573,15 @@ function draw_game()
     else
         draw_upgrades()
     end
+
+    -- Stats bar at bottom (drawn AFTER content to cover any overflow)
+    rect(0, 120, 240, 16, 0)  -- Black background to cover overflow
+    rect(0, 122, 240, 14, 15) -- Dark gray bar
+    rectb(0, 122, 240, 14, 6) -- Green border
+    print("HC:"..format_num(game.cheer), 4, 126, 12)
+    print("Toys:"..format_num(game.toys), 70, 126, 11)
+    print("Santa:"..format_num(game.santa_cheer), 140, 126, 2)
+    print(string.format("%d:%02d", math.floor(game.time/60), game.time%60), 210, 126, 13)
 
     -- Draw floating messages
     for _, m in ipairs(game.messages) do
@@ -570,70 +601,122 @@ function draw_game()
 end
 
 function draw_production()
-    local y = 16
+    local scroll = game.scroll[1]
+    local content_height = 8 + 16 + 16 + 10 + (#production.factories * 12)
+    local max_scroll = math.max(0, content_height - UI_HEIGHT + 20)
+    if scroll > max_scroll then game.scroll[1] = max_scroll scroll = max_scroll end
 
-    -- Stats
-    print("Toy Rate: "..format_num(get_toy_rate()).."/s", 140, y, 11)
-    y = y + 8
+    local y = UI_TOP - scroll
+
+    -- Stats (fixed at top)
+    print("Toy Rate: "..format_num(get_toy_rate()).."/s", 140, UI_TOP, 11)
 
     -- Manual produce button
-    local btn_col = production.click_cooldown > 0 and 8 or 11
-    rect(4, y, 92, 12, btn_col)
-    print("MAKE TOY (+"..format_num(production.click_power)..")", 8, y+3, 0)
-    y = y + 16
+    y = UI_TOP + 10 - scroll
+    if y >= UI_TOP - 12 and y < UI_BOTTOM then
+        local btn_col = production.click_cooldown > 0 and 8 or 11
+        rect(4, math.max(UI_TOP, y), 92, 12, btn_col)
+        if y >= UI_TOP then print("MAKE TOY (+"..format_num(production.click_power)..")", 8, y+3, 0) end
+    end
+    y = y + 14
 
     -- Elf button
-    rect(4, y, 92, 12, game.cheer >= production.elf_cost and 10 or 6)
-    print("Hire Elf ("..format_num(production.elf_cost)..")", 8, y+3, 0)
-    print("Elves: "..production.elves, 100, y+3, 10)
-    y = y + 16
+    if y >= UI_TOP - 12 and y < UI_BOTTOM then
+        rect(4, math.max(UI_TOP, y), 92, 12, game.cheer >= production.elf_cost and 10 or 6)
+        if y >= UI_TOP then
+            print("Hire Elf ("..format_num(production.elf_cost)..")", 8, y+3, 0)
+            print("Elves: "..production.elves, 100, y+3, 10)
+        end
+    end
+    y = y + 14
 
-    -- Factories
-    print("--FACTORIES--", 4, y, 14)
+    -- Factories header
+    if y >= UI_TOP and y < UI_BOTTOM then
+        print("--FACTORIES--", 4, y, 14)
+    end
     y = y + 10
+
+    -- Factory list
     for i, f in ipairs(production.factories) do
-        local can_afford = game.cheer >= f.cost
-        local col = can_afford and 14 or 6
-        rect(4, y, 140, 12, col)
-        print(f.name.." x"..f.count, 8, y+3, 0)
-        print(format_num(f.cost).." HC", 100, y+3, 0)
-        print("+"..format_num(f.rate).."/s", 160, y+3, 11)
-        y = y + 14
+        if y >= UI_TOP - 12 and y < UI_BOTTOM then
+            local can_afford = game.cheer >= f.cost
+            local col = can_afford and 14 or 6
+            rect(4, y, 140, 12, col)
+            if y >= UI_TOP then
+                print(f.name.." x"..f.count, 8, y+3, 0)
+                print(format_num(f.cost).." HC", 100, y+3, 0)
+                print("+"..format_num(f.rate).."/s", 160, y+3, 11)
+            end
+        end
+        y = y + 12
+    end
+
+    -- Scroll indicator
+    if max_scroll > 0 then
+        local bar_h = math.max(10, UI_HEIGHT * UI_HEIGHT / content_height)
+        local bar_y = UI_TOP + (scroll / max_scroll) * (UI_HEIGHT - bar_h)
+        rect(236, UI_TOP, 3, UI_HEIGHT, 1)
+        rect(236, bar_y, 3, bar_h, 12)
     end
 end
 
 function draw_delivery()
-    local y = 16
+    local scroll = game.scroll[2]
+    local content_height = 8 + 16 + 16 + 10 + (#delivery.methods * 12)
+    local max_scroll = math.max(0, content_height - UI_HEIGHT + 20)
+    if scroll > max_scroll then game.scroll[2] = max_scroll scroll = max_scroll end
 
-    -- Stats
-    print("Del Rate: "..format_num(get_delivery_rate()).."/s", 130, y, 12)
-    print("Cheer x"..string.format("%.1f", marketing.cheer_mult), 130, y+8, 11)
-    y = y + 8
+    -- Stats (fixed at top)
+    print("Del Rate: "..format_num(get_delivery_rate()).."/s", 130, UI_TOP, 12)
+    print("Cheer x"..string.format("%.1f", marketing.cheer_mult), 130, UI_TOP+8, 11)
 
     -- Manual deliver button
-    local btn_col = delivery.click_cooldown > 0 and 8 or 12
-    if game.toys < delivery.click_power then btn_col = 6 end
-    rect(4, y, 92, 12, btn_col)
-    print("DELIVER (+"..format_num(delivery.click_power)..")", 8, y+3, 0)
-    y = y + 16
+    local y = UI_TOP + 10 - scroll
+    if y >= UI_TOP - 12 and y < UI_BOTTOM then
+        local btn_col = delivery.click_cooldown > 0 and 8 or 12
+        if game.toys < delivery.click_power then btn_col = 6 end
+        rect(4, math.max(UI_TOP, y), 92, 12, btn_col)
+        if y >= UI_TOP then print("DELIVER (+"..format_num(delivery.click_power)..")", 8, y+3, 0) end
+    end
+    y = y + 14
 
     -- Delivery elf button
-    rect(4, y, 92, 12, game.cheer >= delivery.elf_cost and 9 or 6)
-    print("Delivery Elf ("..format_num(delivery.elf_cost)..")", 8, y+3, 0)
-    print("D.Elves: "..delivery.elves, 100, y+3, 9)
-    y = y + 16
+    if y >= UI_TOP - 12 and y < UI_BOTTOM then
+        rect(4, math.max(UI_TOP, y), 92, 12, game.cheer >= delivery.elf_cost and 9 or 6)
+        if y >= UI_TOP then
+            print("Delivery Elf ("..format_num(delivery.elf_cost)..")", 8, y+3, 0)
+            print("D.Elves: "..delivery.elves, 100, y+3, 9)
+        end
+    end
+    y = y + 14
 
-    -- Delivery methods
-    print("--METHODS--", 4, y, 14)
+    -- Methods header
+    if y >= UI_TOP and y < UI_BOTTOM then
+        print("--METHODS--", 4, y, 14)
+    end
     y = y + 10
+
+    -- Method list
     for i, m in ipairs(delivery.methods) do
-        local can_afford = game.cheer >= m.cost
-        local col = can_afford and 9 or 6
-        rect(4, y, 140, 12, col)
-        print(m.name.." x"..m.count, 8, y+3, 0)
-        print(format_num(m.cost).." HC", 100, y+3, 0)
-        print("+"..format_num(m.rate).."/s", 160, y+3, 12)
-        y = y + 14
+        if y >= UI_TOP - 12 and y < UI_BOTTOM then
+            local can_afford = game.cheer >= m.cost
+            local col = can_afford and 9 or 6
+            rect(4, y, 140, 12, col)
+            if y >= UI_TOP then
+                print(m.name.." x"..m.count, 8, y+3, 0)
+                print(format_num(m.cost).." HC", 100, y+3, 0)
+                print("+"..format_num(m.rate).."/s", 160, y+3, 12)
+            end
+        end
+        y = y + 12
+    end
+
+    -- Scroll indicator
+    if max_scroll > 0 then
+        local bar_h = math.max(10, UI_HEIGHT * UI_HEIGHT / content_height)
+        local bar_y = UI_TOP + (scroll / max_scroll) * (UI_HEIGHT - bar_h)
+        rect(236, UI_TOP, 3, UI_HEIGHT, 1)
+        rect(236, bar_y, 3, bar_h, 12)
     end
 end
 
