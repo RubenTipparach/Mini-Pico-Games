@@ -760,13 +760,13 @@ local SPRITE_DATA = {
     -- 014: Star (yellow sparkle)
     [14] = "00044000004444000444444004ffff40044ff44004ffff400044440000044000",
     -- 015: Christmas Tree (green with ornaments)
-    [15] = "00066000006666000665566065666656666666666566665600666600006006",
+    [15] = "0006600000666600066556606566665666666666656666560066660000600600",
     -- 048: Snowflake
     [48] = "000c000000ccc0000c0c0c00000c0000000c00000c0c0c0000ccc000000c0000",
     -- 049: Heart
-    [49] = "00000000066006600666666006666660006666000006600000000000000000",
+    [49] = "0000000006600660066666600666666000666600000660000000000000000000",
     -- 050: Coin
-    [50] = "00044000004f4400044ff44004ffff4004ffff400444444000044000000440",
+    [50] = "0004400000444400044ff44004ffff4004ffff4004444440000440000004400",
     -- 051: Megaphone
     [51] = "000ee0000eeeeee0eec00cee0eeeeee00eeeeee00ee00ee00e0000e000e00e00",
     -- 052: TV
@@ -777,7 +777,9 @@ local SPRITE_DATA = {
 
 -- Convert hex char to number
 function hex_to_num(c)
+    if not c or c == "" then return 0 end
     local n = string.byte(c)
+    if not n then return 0 end
     if n >= 48 and n <= 57 then return n - 48 end      -- 0-9
     if n >= 97 and n <= 102 then return n - 87 end     -- a-f
     if n >= 65 and n <= 70 then return n - 55 end      -- A-F
