@@ -752,8 +752,264 @@ function TIC()
 end
 
 -- =====================
+-- SPRITE CONSTANTS
+-- =====================
+SPR = {
+    -- Characters (8x8)
+    ELF_PROD = 1,      -- Production elf
+    ELF_DEL = 2,       -- Delivery elf
+    SANTA = 3,         -- Santa competitor
+
+    -- Toys (8x8)
+    TEDDY = 4,         -- Teddy bear
+    ROBOT = 5,         -- Robot toy
+    TRAIN = 6,         -- Toy train
+    DOLL = 7,          -- Doll
+    GIFT = 8,          -- Wrapped present
+
+    -- Buildings (16x16 = 4 sprites each)
+    WORKSHOP = 16,     -- 16,17,32,33
+    FACTORY = 20,      -- 20,21,36,37
+    MEGAPLANT = 24,    -- 24,25,40,41
+
+    -- Vehicles (8x8)
+    BICYCLE = 9,
+    VAN = 10,
+    DRONE = 11,
+    ROCKET = 12,
+    TELEPORT = 13,
+
+    -- Icons (8x8)
+    STAR = 14,         -- Cheer icon
+    TREE = 15,         -- Christmas tree
+    SNOWFLAKE = 48,
+    HEART = 49,
+    COIN = 50,
+
+    -- Marketing (8x8)
+    MEGAPHONE = 51,
+    TV = 52,
+    PHONE = 53,
+}
+
+-- =====================
+-- ANIMATED SPRITE HELPER
+-- =====================
+function draw_sprite(id, x, y, scale, flip, frame)
+    scale = scale or 1
+    flip = flip or 0
+    frame = frame or 0
+    spr(id + frame, x, y, 0, scale, flip)
+end
+
+-- Draw 16x16 sprite (2x2 tiles)
+function draw_big_sprite(id, x, y, scale)
+    scale = scale or 1
+    spr(id, x, y, 0, scale)
+    spr(id+1, x+8*scale, y, 0, scale)
+    spr(id+16, x, y+8*scale, 0, scale)
+    spr(id+17, x+8*scale, y+8*scale, 0, scale)
+end
+
+-- =====================
+-- ENHANCED DRAWING WITH SPRITES
+-- =====================
+function draw_animated_elf(x, y, type, frame)
+    local id = type == "prod" and SPR.ELF_PROD or SPR.ELF_DEL
+    local f = math.floor(frame / 15) % 2
+    spr(id, x, y, 0, 1, f)
+end
+
+function draw_animated_santa(x, y, frame)
+    local f = math.floor(frame / 30) % 2
+    spr(SPR.SANTA, x, y, 0, 1, f)
+end
+
+function draw_toy(x, y, type)
+    local toys = {SPR.TEDDY, SPR.ROBOT, SPR.TRAIN, SPR.DOLL, SPR.GIFT}
+    spr(toys[(type % 5) + 1], x, y)
+end
+
+-- =====================
+-- UPDATED DRAW FUNCTIONS WITH SPRITES
+-- =====================
+function draw_production_sprites()
+    -- Draw elves working
+    for i = 1, math.min(production.elves, 8) do
+        local x = 180 + ((i-1) % 4) * 12
+        local y = 16 + math.floor((i-1) / 4) * 14
+        draw_animated_elf(x, y, "prod", game.frame + i * 7)
+    end
+
+    -- Draw factory icons
+    local factory_sprites = {SPR.WORKSHOP, SPR.FACTORY, SPR.MEGAPLANT, SPR.ROBOT, SPR.ROCKET}
+    for i, f in ipairs(production.factories) do
+        if f.count > 0 then
+            local y = 52 + (i-1) * 14
+            spr(factory_sprites[i] or SPR.GIFT, 148, y + 2)
+        end
+    end
+
+    -- Floating toys when producing
+    if production.click_cooldown > 5 then
+        spr(SPR.TEDDY, 98, 22 - (10 - production.click_cooldown))
+    end
+end
+
+function draw_delivery_sprites()
+    -- Draw delivery elves
+    for i = 1, math.min(delivery.elves, 8) do
+        local x = 180 + ((i-1) % 4) * 12
+        local y = 16 + math.floor((i-1) / 4) * 14
+        draw_animated_elf(x, y, "del", game.frame + i * 5)
+    end
+
+    -- Draw vehicle icons
+    local vehicle_sprites = {SPR.BICYCLE, SPR.VAN, SPR.DRONE, SPR.ROCKET, SPR.TELEPORT}
+    for i, m in ipairs(delivery.methods) do
+        if m.count > 0 then
+            local y = 52 + (i-1) * 14
+            local wobble = math.sin(game.frame/10 + i) * 1
+            spr(vehicle_sprites[i], 148, y + 2 + wobble)
+        end
+    end
+
+    -- Gift flying when delivering
+    if delivery.click_cooldown > 5 then
+        spr(SPR.GIFT, 98, 22 - (10 - delivery.click_cooldown))
+    end
+end
+
+function draw_marketing_sprites()
+    -- Draw campaign icons
+    local camp_sprites = {SPR.MEGAPHONE, SPR.MEGAPHONE, SPR.TV, SPR.TV, SPR.STAR, SPR.STAR}
+    for i, c in ipairs(marketing.campaigns) do
+        if c.owned then
+            spr(camp_sprites[i], 100, 22 + (i-1) * 12)
+        end
+    end
+
+    -- Draw generator icons
+    local gen_sprites = {SPR.GIFT, SPR.TREE, SPR.TV, SPR.STAR}
+    for i, g in ipairs(marketing.generators) do
+        if g.count > 0 then
+            spr(gen_sprites[i], 220, 22 + (i-1) * 12)
+        end
+    end
+end
+
+function draw_santa_competitor()
+    -- Draw Santa in corner with animation
+    local bounce = math.sin(game.frame / 20) * 2
+    spr(SPR.SANTA, 224, 115 + bounce)
+
+    -- Competition bar
+    local player_pct = game.cheer / (game.cheer + game.santa_cheer)
+    local bar_w = 50
+    rect(170, 118, bar_w, 4, 8)
+    rect(170, 118, math.floor(bar_w * player_pct), 4, 6)
+    pix(170 + math.floor(bar_w * 0.5), 117, 4) -- Midpoint marker
+end
+
+function draw_header_icons()
+    -- Star icon for cheer in status bar
+    spr(SPR.STAR, 52, 127)
+    -- Gift icon for toys
+    spr(SPR.GIFT, 112, 127)
+end
+
+function draw_decorations()
+    -- Christmas trees in corners
+    if game.phase >= 2 then
+        spr(SPR.TREE, 232, 14)
+    end
+    if game.phase >= 3 then
+        spr(SPR.TREE, 0, 115)
+    end
+
+    -- Animated snowflakes as sprites (some of them)
+    for i, s in ipairs(game.snowflakes) do
+        if i % 5 == 0 and s.y < 120 then
+            spr(SPR.SNOWFLAKE, s.x, s.y)
+        end
+    end
+end
+
+-- =====================
+-- MAIN LOOP
+-- =====================
+function TIC()
+    if not game.won then
+        handle_input()
+        update_game()
+    end
+    draw_game()
+
+    -- Draw sprites on top
+    if game.tab == 1 then
+        draw_production_sprites()
+    elseif game.tab == 2 then
+        draw_delivery_sprites()
+    elseif game.tab == 3 then
+        draw_marketing_sprites()
+    end
+
+    draw_santa_competitor()
+    draw_header_icons()
+    draw_decorations()
+end
+
+-- =====================
 -- METADATA (for TIC-80)
 -- =====================
+-- <TILES>
+-- 001:00066000066cc6006c5cc5606ccccc606c5cc5600666c6000060060000000000
+-- 002:00099000099cc9009a5cc5a09acccc909a5cc5a00999c9000090090000000000
+-- 003:002cc200022222002c2cc2c022c22c2022cccc20222222200ccccc0002200220
+-- 004:003333000333333033c33c33333333303333333003c33c3000333300000ff000
+-- 005:00dddd000d9dd9d00ddddddd0dc00cd00dc99cd00ddddddd0d0dd0d000d00d00
+-- 006:00000000033333303b3bb3b33b3333b30b3333b000bffb00003003000bb00bb0
+-- 007:00022000002cc20002c2c20002cccc2002cccc20022c2c20002c2c0002200220
+-- 008:000220000222222022222222422442242222222204422440040ff04004400440
+-- 009:0000000000f0000000ffff00ff9ff9ff00ffff0000ff0f00000f00000f000f00
+-- 010:000000000000000000eeee00eeeeeeeeeee99eeeeeeeeeeee0e00e0e0e0000e0
+-- 011:000bb0000b0bb0b00bbbbbb0bbb99bbb0bbbbbb00b0bb0b0000bb00000b00b00
+-- 012:00044000004444000444440044944940444494404449444004444400040ee040
+-- 013:0b0bb0b000bbbb00bbbbbbbbbb9bb9bb00bbbb000bbbbbb00b0bb0b0000bb000
+-- 014:000440000044440004ffff40044ff44004ffff4004f44f40004444000004400
+-- 015:00066000006666000656656066666666656666560666666000666600006006
+-- 016:0000000f000000ff00000fff0000ffff000fffff006fffff066fffff66ffffff
+-- 017:f0000000ff000000fff00000ffff0000fffff000fffff600fffff660ffffff66
+-- 018:00000000000000000000000000000000000000000000000000000000000000ff
+-- 019:00000000000000000000000000000000000000000000000000000000ff000000
+-- 020:0000088800008888000888880088888808888888088888880888888888888888
+-- 021:88800000888800008888800088888800888888808888888088888880888888
+-- 022:000000000000000000000000000000ee000000ee0000eeee000eeeee00eeeeee
+-- 023:000000000000000000000000ee000000ee000000eeee0000eeeee000eeeeee00
+-- 024:0000000d000000dd00000ddd0000dddd000ddddd00dddddd0ddddddddddddddd
+-- 025:d0000000dd000000ddd00000dddd0000ddddd000dddddd00ddddddd0dddddddd
+-- 032:66fffff606fffff50066665500066655000006550000006500000005000000
+-- 033:5fffff665fffff600556660055566000556000005600000050000000000000
+-- 034:000000ff0000ffff000fffff00ffffff0fffffff0fffefff00fffeff0000ff
+-- 035:ff000000ffff0000fffff000ffffff00fffffffefffefff0ffeff00000ff0000
+-- 036:8888888808888888008888880008888800008888000008880000000800000000
+-- 037:888888888888888088888800888888008888800088880000880000000000000
+-- 038:00eeeeee0eeeeeeeeeeeeeeeeeeeeeeeeeeffeeeeeefffeeeeefffee0000ff00
+-- 039:eeeeee00eeeeeeee0eeeeeeeeeeeeeeeeeeffeeeeefffeeeefffe000ff000000
+-- 040:dddddddd0ddddddd00dddddd000ddddd0000dddd00000ddd0000000d00000000
+-- 041:ddddddddddddddd0dddddd00ddddd000dddd0000ddd00000d00000000000000
+-- 048:000c000000ccc0000c0c0c00000c0000000c00000c0c0c0000ccc000000c0000
+-- 049:00022000002222000222222002c22c2002222220002222000002200000022000
+-- 050:00044000004f4400044ff44004ffff4004ffff400444444000044000000440
+-- 051:000ee0000eeeeee0eec00cee0eeeeee00eeeeee00ee00ee00e0000e000e00e00
+-- 052:00eeee000e0ee0e00eeeeee00e0ee0e000eeee00000ee0000000000000000000
+-- 053:00099000009999000999999009a99a9009999990009999000009900000099000
+-- </TILES>
+
+-- <SPRITES>
+-- 000:00000000000000000000000000000000000000000000000000000000000000
+-- </SPRITES>
+
 -- <PALETTE>
 -- 000:1a1c2c5d275db13e53ef7d57ffcd75a7f07038b76425717929366f3b5dc941a6f673eff7f4f4f494b0c2566c86333c57
 -- </PALETTE>
