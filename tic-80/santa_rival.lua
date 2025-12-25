@@ -551,21 +551,10 @@ function handle_input()
         if game.scroll[game.tab] < 0 then game.scroll[game.tab] = 0 end
     end
 
-    -- Drag to scroll (when holding mouse in content area)
-    if mb and my >= UI_TOP and my < UI_BOTTOM then
-        if dragging then
-            local delta = prev_my - my
-            game.scroll[game.tab] = game.scroll[game.tab] + delta
-            if game.scroll[game.tab] < 0 then game.scroll[game.tab] = 0 end
-        end
-        dragging = true
-    else
+    -- Mouse clicks FIRST (on initial press, before drag starts)
+    if mb and not pmb then
+        -- This is a fresh click - handle it before drag logic
         dragging = false
-    end
-    prev_my = my
-
-    -- Mouse clicks (only on initial press, not during drag)
-    if mb and not pmb and not dragging then
         -- Tab buttons (top)
         if my < 12 then
             if mx < 60 then game.tab = 1
@@ -576,7 +565,18 @@ function handle_input()
         else
             handle_tab_click()
         end
+    elseif mb and my >= UI_TOP and my < UI_BOTTOM then
+        -- Continued hold (not first frame) - this is dragging
+        if dragging then
+            local delta = prev_my - my
+            game.scroll[game.tab] = game.scroll[game.tab] + delta
+            if game.scroll[game.tab] < 0 then game.scroll[game.tab] = 0 end
+        end
+        dragging = true
+    else
+        dragging = false
     end
+    prev_my = my
 
     pmb = mb
 end
@@ -697,6 +697,9 @@ function draw_game()
     end
     draw_decorations()
 
+    -- Santa competitor in background (bottom right corner, behind UI)
+    draw_santa_competitor()
+
     -- Header bar
     rect(0, 0, 240, 12, 1)
 
@@ -728,9 +731,6 @@ function draw_game()
     print("Toys:"..format_num(game.toys), 70, 126, 11)
     print("Santa:"..format_num(game.santa_cheer), 140, 126, 2)
     print(string.format("%d:%02d", math.floor(game.time/60), game.time%60), 210, 126, 13)
-
-    -- Santa bouncing in status bar area
-    draw_santa_competitor()
 
     -- Draw floating messages
     for _, m in ipairs(game.messages) do
@@ -1269,16 +1269,16 @@ function draw_marketing_sprites()
 end
 
 function draw_santa_competitor()
-    -- Draw Santa in corner with animation
+    -- Draw Santa in background corner (upper right)
     local bounce = math.sin(game.frame / 20) * 2
-    spr(SPR.SANTA, 224, 115 + bounce)
+    spr(SPR.SANTA, 224, 100 + bounce)
 
-    -- Competition bar
+    -- Competition bar (in background, above status bar)
     local player_pct = game.cheer / (game.cheer + game.santa_cheer)
     local bar_w = 50
-    rect(170, 118, bar_w, 4, 8)
-    rect(170, 118, math.floor(bar_w * player_pct), 4, 6)
-    pix(170 + math.floor(bar_w * 0.5), 117, 4) -- Midpoint marker
+    rect(180, 110, bar_w, 4, 8)
+    rect(180, 110, math.floor(bar_w * player_pct), 4, 6)
+    pix(180 + math.floor(bar_w * 0.5), 109, 4) -- Midpoint marker
 end
 
 function draw_header_icons()
