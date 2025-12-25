@@ -38,6 +38,45 @@ local UI_BOTTOM = 118    -- Content ends above status bar (126-8)
 local UI_HEIGHT = UI_BOTTOM - UI_TOP
 
 -- =====================
+-- TIC-80 SWEETIE 16 COLOR PALETTE
+-- =====================
+-- Index  Hex       Color Name
+-- 0      #1a1c2c   Black (TRANSPARENT in sprites!)
+-- 1      #5d275d   Dark Purple
+-- 2      #b13e53   Dark Red
+-- 3      #ef7d57   Orange
+-- 4      #ffcd75   Yellow/Skin
+-- 5      #a7f070   Light Green (NOT USED)
+-- 6      #38b764   Green
+-- 7      #257179   Teal/Dark Cyan - for unpurchased items
+-- 8      #29366f   Dark Blue - for prices
+-- 9      #3b5dc9   Blue
+-- 10     #41a6f6   Light Blue
+-- 11     #73eff7   Cyan
+-- 12     #f4f4f4   White
+-- 13     #94b0c2   Light Gray
+-- 14     #566c86   Gray
+-- 15     #333c57   Dark Gray
+local COLORS = {
+    BLACK = 0,        -- Transparent in sprites
+    DARK_PURPLE = 1,
+    DARK_RED = 2,
+    ORANGE = 3,
+    YELLOW = 4,       -- Also skin tone
+    LIGHT_GREEN = 5,  -- NOT USED
+    GREEN = 6,
+    TEAL = 7,         -- For unpurchased/unavailable items
+    DARK_BLUE = 8,    -- For prices
+    BLUE = 9,
+    LIGHT_BLUE = 10,
+    CYAN = 11,
+    WHITE = 12,
+    LIGHT_GRAY = 13,
+    GRAY = 14,
+    DARK_GRAY = 15,
+}
+
+-- =====================
 -- PRODUCTION SYSTEM
 -- =====================
 local production = {
@@ -56,11 +95,11 @@ local production = {
 
     -- Toy Factories
     factories = {
-        {name="Workshop", count=0, cost=50, rate=2, owned=false},
-        {name="Mini Factory", count=0, cost=500, rate=10, owned=false},
-        {name="Mega Plant", count=0, cost=5000, rate=50, owned=false},
-        {name="Robo-Fab", count=0, cost=50000, rate=300, owned=false},
-        {name="Quantum Forge", count=0, cost=500000, rate=2000, owned=false},
+        {name="Workshop", count=0, cost=50, rate=2, owned=false, desc="Cozy craft corner"},
+        {name="Mini Factory", count=0, cost=500, rate=10, owned=false, desc="Assembly lines!"},
+        {name="Mega Plant", count=0, cost=5000, rate=50, owned=false, desc="Industrial scale"},
+        {name="Robo-Fab", count=0, cost=50000, rate=300, owned=false, desc="Robots build toys"},
+        {name="Quantum Forge", count=0, cost=500000, rate=2000, owned=false, desc="Toys from atoms!"},
     },
     factory_mult = 1,
 
@@ -88,11 +127,11 @@ local delivery = {
 
     -- Delivery methods
     methods = {
-        {name="Bicycle Squad", count=0, cost=100, rate=2, mult=1, owned=false},
-        {name="Van Fleet", count=0, cost=1000, rate=8, mult=1.2, owned=false},
-        {name="Drone Network", count=0, cost=10000, rate=30, mult=1.5, owned=false},
-        {name="Rocket Express", count=0, cost=100000, rate=150, mult=2, owned=false},
-        {name="Teleporter", count=0, cost=1000000, rate=1000, mult=3, owned=false},
+        {name="Bicycle Squad", count=0, cost=100, rate=2, mult=1, owned=false, desc="Eco-friendly!"},
+        {name="Van Fleet", count=0, cost=1000, rate=8, mult=1.2, owned=false, desc="Reliable trucks"},
+        {name="Drone Network", count=0, cost=10000, rate=30, mult=1.5, owned=false, desc="Sky delivery!"},
+        {name="Rocket Express", count=0, cost=100000, rate=150, mult=2, owned=false, desc="Supersonic gifts"},
+        {name="Teleporter", count=0, cost=1000000, rate=1000, mult=3, owned=false, desc="Instant arrival!"},
     },
     method_mult = 1,
 }
@@ -114,10 +153,10 @@ local marketing = {
 
     -- Passive cheer generators
     generators = {
-        {name="Gift Shop", count=0, cost=500, rate=1, owned=false},
-        {name="Theme Park", count=0, cost=5000, rate=8, owned=false},
-        {name="Streaming", count=0, cost=40000, rate=50, owned=false},
-        {name="Merch Empire", count=0, cost=300000, rate=400, owned=false},
+        {name="Gift Shop", count=0, cost=500, rate=1, owned=false, desc="Sell souvenirs"},
+        {name="Theme Park", count=0, cost=5000, rate=8, owned=false, desc="Holiday fun!"},
+        {name="Streaming", count=0, cost=40000, rate=50, owned=false, desc="24/7 content"},
+        {name="Merch Empire", count=0, cost=300000, rate=400, owned=false, desc="Brand everything"},
     },
 }
 
@@ -126,21 +165,21 @@ local marketing = {
 -- =====================
 local upgrades = {
     production = {
-        {name="Better Tools", cost=100, mult=2, desc="+100% click", owned=false, type="click"},
-        {name="Power Tools", cost=1000, mult=2, desc="+100% click", owned=false, type="click"},
-        {name="Elf Training", cost=500, mult=2, desc="+100% elf prod", owned=false, type="elf"},
-        {name="Elf Masters", cost=5000, mult=2, desc="+100% elf prod", owned=false, type="elf"},
-        {name="Automation I", cost=2000, mult=1.5, desc="+50% factories", owned=false, type="factory"},
-        {name="Automation II", cost=20000, mult=2, desc="+100% factories", owned=false, type="factory"},
-        {name="AI Assembly", cost=200000, mult=3, desc="+200% factories", owned=false, type="factory"},
+        {name="Better Tools", cost=100, mult=2, desc="Craft 2x per tap!", owned=false, type="click"},
+        {name="Power Tools", cost=1000, mult=2, desc="Even faster taps!", owned=false, type="click"},
+        {name="Elf Training", cost=500, mult=2, desc="Speedy lil guys!", owned=false, type="elf"},
+        {name="Elf Masters", cost=5000, mult=2, desc="Nimble fingers!", owned=false, type="elf"},
+        {name="Automation I", cost=2000, mult=1.5, desc="Conveyor belts!", owned=false, type="factory"},
+        {name="Automation II", cost=20000, mult=2, desc="Robot arms!", owned=false, type="factory"},
+        {name="AI Assembly", cost=200000, mult=3, desc="Machines dream!", owned=false, type="factory"},
     },
     delivery = {
-        {name="GPS Routes", cost=200, mult=2, desc="+100% del click", owned=false, type="click"},
-        {name="Fast Lanes", cost=2000, mult=2, desc="+100% del click", owned=false, type="click"},
-        {name="Del. Training", cost=800, mult=2, desc="+100% del elves", owned=false, type="elf"},
-        {name="Speed Elves", cost=8000, mult=2, desc="+100% del elves", owned=false, type="elf"},
-        {name="Fleet Upgrade", cost=5000, mult=1.5, desc="+50% methods", owned=false, type="method"},
-        {name="Turbo Fleet", cost=50000, mult=2, desc="+100% methods", owned=false, type="method"},
+        {name="GPS Routes", cost=200, mult=2, desc="No wrong turns!", owned=false, type="click"},
+        {name="Fast Lanes", cost=2000, mult=2, desc="Shortcut found!", owned=false, type="click"},
+        {name="Dlv. Training", cost=800, mult=2, desc="Elves zoom!", owned=false, type="elf"},
+        {name="Speed Elves", cost=8000, mult=2, desc="Caffeine boost!", owned=false, type="elf"},
+        {name="Fleet Upgrade", cost=5000, mult=1.5, desc="Better engines!", owned=false, type="method"},
+        {name="Turbo Fleet", cost=50000, mult=2, desc="Nitro mode!", owned=false, type="method"},
     },
     cheer = {
         {name="Jingle Bells", cost=300, mult=1.2, desc="+20% all cheer", owned=false},
@@ -581,9 +620,11 @@ local prev_my = 0
 local dragging = false
 
 function handle_input()
-    -- Mouse input only (mx, my, mb, scrollx, scrolly, left, middle, right)
-    local scrollx, scrolly
-    mx, my, mb, scrollx, scrolly = mouse()
+    -- Mouse input: mouse() returns x, y, left, middle, right, scrollx, scrolly
+    -- We need to capture all return values properly
+    local left, middle, right, sx, sy
+    mx, my, left, middle, right, sx, sy = mouse()
+    mb = left  -- We only care about left click for buttons
 
     -- DEBUG: Hold shift and click to get +10 toys or +10 cheer
     -- Shift key code is 64 in TIC-80
@@ -598,8 +639,8 @@ function handle_input()
     end
 
     -- Scroll wheel for scrolling content
-    if scrolly and scrolly ~= 0 then
-        local scroll_amount = scrolly * 14
+    if sy and type(sy) == "number" and sy ~= 0 then
+        local scroll_amount = sy * 14
         game.scroll[game.tab] = game.scroll[game.tab] - scroll_amount
         if game.scroll[game.tab] < 0 then game.scroll[game.tab] = 0 end
     end
@@ -644,74 +685,116 @@ function handle_tab_click()
     if game.tab == 1 then -- Production
         local scroll = game.scroll[1]
         local adj_my = my + scroll  -- Adjust for scroll
+        local btn_width = 120
+        local btn_x = 4
 
         -- Manual produce button (y = UI_TOP + 10)
         local btn_y = UI_TOP + 10
-        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
+        local make_name = "MAKE TOY"
+        local make_cost = "+"..format_num(production.click_power)
+        local make_h, _, _ = get_button_layout(make_name, make_cost, btn_width, nil)
+        if adj_my >= btn_y and adj_my < btn_y + make_h and mx >= btn_x and mx < btn_x + btn_width then
             click_produce()
         end
+        btn_y = btn_y + make_h + 2
+
         -- Buy elf button
-        btn_y = btn_y + 14
-        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
+        local elf_h, _, _ = get_button_layout("Hire Elf", format_num(production.elf_cost), btn_width, "Toy makers")
+        if adj_my >= btn_y and adj_my < btn_y + elf_h and mx >= btn_x and mx < btn_x + btn_width then
             buy_prod_elf()
         end
+        btn_y = btn_y + elf_h + 2
+
         -- Factory buttons (after header)
-        local factory_start = btn_y + 14 + 10
+        local factory_start = btn_y + 10
+        local y = factory_start
         for i, f in ipairs(production.factories) do
-            local y = factory_start + (i-1) * 12
-            if adj_my >= y and adj_my < y + 12 then
+            local f_name = f.name.." x"..f.count
+            local f_cost = format_num(f.cost)
+            local f_h, _, _ = get_button_layout(f_name, f_cost, btn_width, f.desc)
+            if adj_my >= y and adj_my < y + f_h and mx >= btn_x and mx < btn_x + btn_width then
                 buy_factory(i)
             end
+            y = y + f_h
         end
 
     elseif game.tab == 2 then -- Delivery
         local scroll = game.scroll[2]
         local adj_my = my + scroll
+        local btn_width = 120
+        local btn_x = 4
 
         -- Manual deliver button
         local btn_y = UI_TOP + 10
-        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
+        local del_name = "DELIVER"
+        local del_cost = "+"..format_num(delivery.click_power)
+        local del_h, _, _ = get_button_layout(del_name, del_cost, btn_width, nil)
+        if adj_my >= btn_y and adj_my < btn_y + del_h and mx >= btn_x and mx < btn_x + btn_width then
             click_deliver()
         end
+        btn_y = btn_y + del_h + 2
+
         -- Buy delivery elf
-        btn_y = btn_y + 14
-        if adj_my >= btn_y and adj_my < btn_y + 12 and mx < 100 then
+        local elf_h, _, _ = get_button_layout("Dlv Elf", format_num(delivery.elf_cost), btn_width, "Gift couriers")
+        if adj_my >= btn_y and adj_my < btn_y + elf_h and mx >= btn_x and mx < btn_x + btn_width then
             buy_del_elf()
         end
+        btn_y = btn_y + elf_h + 2
+
         -- Delivery methods
-        local method_start = btn_y + 14 + 10
+        local method_start = btn_y + 10
+        local y = method_start
         for i, m in ipairs(delivery.methods) do
-            local y = method_start + (i-1) * 12
-            if adj_my >= y and adj_my < y + 12 then
+            local m_name = m.name.." x"..m.count
+            local m_cost = format_num(m.cost)
+            local m_h, _, _ = get_button_layout(m_name, m_cost, btn_width, m.desc)
+            if adj_my >= y and adj_my < y + m_h and mx >= btn_x and mx < btn_x + btn_width then
                 buy_method(i)
             end
+            y = y + m_h
         end
 
     elseif game.tab == 3 then -- Marketing
-        -- Campaigns
+        local scroll = game.scroll[3]
+        local adj_my = my + scroll
+        local btn_width = 115
+        local left_x = 4
+        local right_x = 124
+        -- Campaigns (left column)
+        local y = UI_TOP + 8
         for i, c in ipairs(marketing.campaigns) do
-            local y = 20 + (i-1) * 12
-            if my >= y and my < y + 12 and mx < 120 then
+            local cost_text = c.owned and "[OK]" or format_num(c.cost)
+            local h, _, _ = get_button_layout(c.name, cost_text, btn_width, c.desc)
+            if adj_my >= y and adj_my < y + h and mx >= left_x and mx < left_x + btn_width then
                 buy_campaign(i)
             end
+            y = y + h
         end
-        -- Generators
+        -- Generators (right column)
+        local y2 = UI_TOP + 8
         for i, g in ipairs(marketing.generators) do
-            local y = 20 + (i-1) * 12
-            if my >= y and my < y + 12 and mx >= 120 then
+            local g_name = g.name.." x"..g.count
+            local g_cost = format_num(g.cost)
+            local h, _, _ = get_button_layout(g_name, g_cost, btn_width, g.desc)
+            if adj_my >= y2 and adj_my < y2 + h and mx >= right_x and mx < right_x + btn_width then
                 buy_generator(i)
             end
+            y2 = y2 + h
         end
 
     elseif game.tab == 4 then -- Upgrades
         local scroll = game.scroll[4]
         local adj_my = my + scroll
+        local col_width = 115
+        local left_x = 4
+        local right_x = 124
+        local full_width = 230
 
         -- Production upgrades (left column)
         local y = UI_TOP + 10
         for i, u in ipairs(upgrades.production) do
-            local item_h = get_upgrade_item_height(u, 110)
-            if adj_my >= y and adj_my < y + item_h and mx < 120 then
+            local item_h = get_upgrade_item_height(u, col_width)
+            if adj_my >= y and adj_my < y + item_h and mx >= left_x and mx < left_x + col_width then
                 buy_upgrade("production", i)
             end
             y = y + item_h
@@ -720,8 +803,8 @@ function handle_tab_click()
         -- Delivery upgrades (right column)
         local y2 = UI_TOP + 10
         for i, u in ipairs(upgrades.delivery) do
-            local item_h = get_upgrade_item_height(u, 110)
-            if adj_my >= y2 and adj_my < y2 + item_h and mx >= 120 then
+            local item_h = get_upgrade_item_height(u, col_width)
+            if adj_my >= y2 and adj_my < y2 + item_h and mx >= right_x and mx < right_x + col_width then
                 buy_upgrade("delivery", i)
             end
             y2 = y2 + item_h
@@ -730,8 +813,8 @@ function handle_tab_click()
         -- Calculate where cheer section starts (use larger of y, y2)
         y = math.max(y, y2) + 14
         for i, u in ipairs(upgrades.cheer) do
-            local item_h = get_upgrade_item_height(u, 230)
-            if adj_my >= y and adj_my < y + item_h then
+            local item_h = get_upgrade_item_height(u, full_width)
+            if adj_my >= y and adj_my < y + item_h and mx >= left_x and mx < left_x + full_width then
                 buy_upgrade("cheer", i)
             end
             y = y + item_h
@@ -741,8 +824,8 @@ function handle_tab_click()
         if game.cheer >= 100000000 then
             y = y + 14
             for i, u in ipairs(upgrades.weapons) do
-                local item_h = get_upgrade_item_height(u, 230)
-                if adj_my >= y and adj_my < y + item_h then
+                local item_h = get_upgrade_item_height(u, full_width)
+                if adj_my >= y and adj_my < y + item_h and mx >= left_x and mx < left_x + full_width then
                     buy_upgrade("weapons", i)
                 end
                 y = y + item_h
@@ -824,33 +907,63 @@ end
 
 function draw_production()
     local scroll = game.scroll[1]
-    local content_height = 8 + 16 + 16 + 10 + (#production.factories * 12)
-    local max_scroll = math.max(0, content_height - UI_HEIGHT + 20)
+    local btn_width = 120  -- Button width (~50% of 240px screen)
+
+    -- Calculate content height dynamically
+    local content_height = 10  -- Stats line
+    -- Manual produce button
+    local make_cost = "+"..format_num(production.click_power)
+    local make_h, _, _ = get_button_layout("MAKE TOY", make_cost, btn_width, nil)
+    content_height = content_height + make_h + 2
+    -- Elf button
+    local elf_cost = format_num(production.elf_cost)
+    local elf_h, _, _ = get_button_layout("Hire Elf", elf_cost, btn_width, "Toy makers")
+    content_height = content_height + elf_h + 2
+    -- Header
+    content_height = content_height + 10
+    -- Factories
+    for _, f in ipairs(production.factories) do
+        local f_cost = format_num(f.cost)
+        local f_name = f.name.." x"..f.count
+        local f_h, _, _ = get_button_layout(f_name, f_cost, btn_width, f.desc)
+        content_height = content_height + f_h
+    end
+    content_height = content_height + 20  -- Padding
+
+    local max_scroll = math.max(0, content_height - UI_HEIGHT)
     if scroll > max_scroll then game.scroll[1] = max_scroll scroll = max_scroll end
 
     local y = UI_TOP - scroll
 
     -- Stats (fixed at top)
-    print("Toy Rate: "..format_num(get_toy_rate()).."/s", 140, UI_TOP, 11)
+    print("Rate:"..format_num(get_toy_rate()).."/s", 130, UI_TOP, 11)
 
     -- Manual produce button
     y = UI_TOP + 10 - scroll
-    if y >= UI_TOP - 12 and y < UI_BOTTOM then
-        local btn_col = production.click_cooldown > 0 and 8 or 11
-        rect(4, math.max(UI_TOP, y), 92, 12, btn_col)
-        if y >= UI_TOP then print("MAKE TOY (+"..format_num(production.click_power)..")", 8, y+3, 0) end
-    end
-    y = y + 14
-
-    -- Elf button
-    if y >= UI_TOP - 12 and y < UI_BOTTOM then
-        rect(4, math.max(UI_TOP, y), 92, 12, game.cheer >= production.elf_cost and 10 or 6)
+    local make_name = "MAKE TOY"
+    local make_cost_text = "+"..format_num(production.click_power)
+    local make_height, _, _ = get_button_layout(make_name, make_cost_text, btn_width, nil)
+    if y >= UI_TOP - make_height and y < UI_BOTTOM then
+        local btn_col = production.click_cooldown > 0 and COLORS.YELLOW or COLORS.LIGHT_BLUE
         if y >= UI_TOP then
-            print("Hire Elf ("..format_num(production.elf_cost)..")", 8, y+3, 0)
-            print("Elves: "..production.elves, 100, y+3, 10)
+            draw_button(4, y, btn_width, make_name, make_cost_text, btn_col, COLORS.BLACK, COLORS.DARK_BLUE, nil)
         end
     end
-    y = y + 14
+    y = y + make_height + 2
+
+    -- Elf button
+    local elf_name = "Hire Elf"
+    local elf_cost_text = format_num(production.elf_cost)
+    local elf_desc = "Toy makers"
+    local elf_height, _, _ = get_button_layout(elf_name, elf_cost_text, btn_width, elf_desc)
+    if y >= UI_TOP - elf_height and y < UI_BOTTOM then
+        local col = game.cheer >= production.elf_cost and COLORS.LIGHT_BLUE or COLORS.TEAL
+        if y >= UI_TOP then
+            draw_button(4, y, btn_width, elf_name, elf_cost_text, col, COLORS.BLACK, COLORS.DARK_BLUE, elf_desc)
+            print("x"..production.elves, 130, y+3, COLORS.LIGHT_BLUE)
+        end
+    end
+    y = y + elf_height + 2
 
     -- Factories header
     if y >= UI_TOP and y < UI_BOTTOM then
@@ -860,17 +973,18 @@ function draw_production()
 
     -- Factory list
     for i, f in ipairs(production.factories) do
-        if y >= UI_TOP - 12 and y < UI_BOTTOM then
+        local f_name = f.name.." x"..f.count
+        local f_cost = format_num(f.cost)
+        local f_height, _, _ = get_button_layout(f_name, f_cost, btn_width, f.desc)
+        if y >= UI_TOP - f_height and y < UI_BOTTOM then
             local can_afford = game.cheer >= f.cost
-            local col = can_afford and 14 or 6
-            rect(4, y, 140, 12, col)
+            local col = can_afford and COLORS.LIGHT_BLUE or COLORS.TEAL
             if y >= UI_TOP then
-                print(f.name.." x"..f.count, 8, y+3, 0)
-                print(format_num(f.cost).." HC", 100, y+3, 0)
-                print("+"..format_num(f.rate).."/s", 160, y+3, 11)
+                draw_button(4, y, btn_width, f_name, f_cost, col, COLORS.BLACK, COLORS.DARK_BLUE, f.desc)
+                print("+"..format_num(f.rate).."/s", 130, y+3, COLORS.CYAN)
             end
         end
-        y = y + 12
+        y = y + f_height
     end
 
     -- Scroll indicator
@@ -884,33 +998,63 @@ end
 
 function draw_delivery()
     local scroll = game.scroll[2]
-    local content_height = 8 + 16 + 16 + 10 + (#delivery.methods * 12)
-    local max_scroll = math.max(0, content_height - UI_HEIGHT + 20)
+    local btn_width = 120  -- Button width (~50% of 240px screen)
+
+    -- Calculate content height dynamically
+    local content_height = 16  -- Stats lines
+    -- Manual deliver button
+    local del_cost = "+"..format_num(delivery.click_power)
+    local del_h, _, _ = get_button_layout("DELIVER", del_cost, btn_width, nil)
+    content_height = content_height + del_h + 2
+    -- Elf button
+    local elf_cost = format_num(delivery.elf_cost)
+    local elf_h, _, _ = get_button_layout("Dlv Elf", elf_cost, btn_width, "Gift couriers")
+    content_height = content_height + elf_h + 2
+    -- Header
+    content_height = content_height + 10
+    -- Methods
+    for _, m in ipairs(delivery.methods) do
+        local m_cost = format_num(m.cost)
+        local m_name = m.name.." x"..m.count
+        local m_h, _, _ = get_button_layout(m_name, m_cost, btn_width, m.desc)
+        content_height = content_height + m_h
+    end
+    content_height = content_height + 20  -- Padding
+
+    local max_scroll = math.max(0, content_height - UI_HEIGHT)
     if scroll > max_scroll then game.scroll[2] = max_scroll scroll = max_scroll end
 
     -- Stats (fixed at top)
-    print("Del Rate: "..format_num(get_delivery_rate()).."/s", 130, UI_TOP, 12)
-    print("Cheer x"..string.format("%.1f", marketing.cheer_mult), 130, UI_TOP+8, 11)
+    print("Rate:"..format_num(get_delivery_rate()).."/s", 130, UI_TOP, 12)
+    print("x"..string.format("%.1f", marketing.cheer_mult), 130, UI_TOP+8, 11)
 
     -- Manual deliver button
     local y = UI_TOP + 10 - scroll
-    if y >= UI_TOP - 12 and y < UI_BOTTOM then
-        local btn_col = delivery.click_cooldown > 0 and 8 or 12
-        if game.toys < delivery.click_power then btn_col = 6 end
-        rect(4, math.max(UI_TOP, y), 92, 12, btn_col)
-        if y >= UI_TOP then print("DELIVER (+"..format_num(delivery.click_power)..")", 8, y+3, 0) end
-    end
-    y = y + 14
-
-    -- Delivery elf button
-    if y >= UI_TOP - 12 and y < UI_BOTTOM then
-        rect(4, math.max(UI_TOP, y), 92, 12, game.cheer >= delivery.elf_cost and 9 or 6)
+    local del_name = "DELIVER"
+    local del_cost_text = "+"..format_num(delivery.click_power)
+    local del_height, _, _ = get_button_layout(del_name, del_cost_text, btn_width, nil)
+    if y >= UI_TOP - del_height and y < UI_BOTTOM then
+        local btn_col = delivery.click_cooldown > 0 and COLORS.YELLOW or COLORS.LIGHT_BLUE
+        if game.toys < delivery.click_power then btn_col = COLORS.TEAL end
         if y >= UI_TOP then
-            print("Delivery Elf ("..format_num(delivery.elf_cost)..")", 8, y+3, 0)
-            print("D.Elves: "..delivery.elves, 100, y+3, 9)
+            draw_button(4, y, btn_width, del_name, del_cost_text, btn_col, COLORS.BLACK, COLORS.DARK_BLUE, nil)
         end
     end
-    y = y + 14
+    y = y + del_height + 2
+
+    -- Delivery elf button
+    local elf_name = "Dlv Elf"
+    local elf_cost_text = format_num(delivery.elf_cost)
+    local elf_desc = "Gift couriers"
+    local elf_height, _, _ = get_button_layout(elf_name, elf_cost_text, btn_width, elf_desc)
+    if y >= UI_TOP - elf_height and y < UI_BOTTOM then
+        local col = game.cheer >= delivery.elf_cost and COLORS.LIGHT_BLUE or COLORS.TEAL
+        if y >= UI_TOP then
+            draw_button(4, y, btn_width, elf_name, elf_cost_text, col, COLORS.BLACK, COLORS.DARK_BLUE, elf_desc)
+            print("x"..delivery.elves, 130, y+3, COLORS.LIGHT_BLUE)
+        end
+    end
+    y = y + elf_height + 2
 
     -- Methods header
     if y >= UI_TOP and y < UI_BOTTOM then
@@ -920,17 +1064,18 @@ function draw_delivery()
 
     -- Method list
     for i, m in ipairs(delivery.methods) do
-        if y >= UI_TOP - 12 and y < UI_BOTTOM then
+        local m_name = m.name.." x"..m.count
+        local m_cost = format_num(m.cost)
+        local m_height, _, _ = get_button_layout(m_name, m_cost, btn_width, m.desc)
+        if y >= UI_TOP - m_height and y < UI_BOTTOM then
             local can_afford = game.cheer >= m.cost
-            local col = can_afford and 9 or 6
-            rect(4, y, 140, 12, col)
+            local col = can_afford and COLORS.LIGHT_BLUE or COLORS.TEAL
             if y >= UI_TOP then
-                print(m.name.." x"..m.count, 8, y+3, 0)
-                print(format_num(m.cost).." HC", 100, y+3, 0)
-                print("+"..format_num(m.rate).."/s", 160, y+3, 12)
+                draw_button(4, y, btn_width, m_name, m_cost, col, COLORS.BLACK, COLORS.DARK_BLUE, m.desc)
+                print("+"..format_num(m.rate).."/s", 130, y+3, COLORS.WHITE)
             end
         end
-        y = y + 12
+        y = y + m_height
     end
 
     -- Scroll indicator
@@ -943,54 +1088,149 @@ function draw_delivery()
 end
 
 function draw_marketing()
+    local scroll = game.scroll[3]
+    local btn_width = 115  -- Width for marketing buttons (~50% of screen)
+
+    -- Calculate content height dynamically
+    local content_height = 10  -- Headers
+    for _, c in ipairs(marketing.campaigns) do
+        local cost_text = c.owned and "[OK]" or format_num(c.cost)
+        local h, _, _ = get_button_layout(c.name, cost_text, btn_width, c.desc)
+        content_height = content_height + h
+    end
+    -- Use the larger of campaigns or generators height
+    local gen_height = 0
+    for _, g in ipairs(marketing.generators) do
+        local g_name = g.name.." x"..g.count
+        local g_cost = format_num(g.cost)
+        local h, _, _ = get_button_layout(g_name, g_cost, btn_width, g.desc)
+        gen_height = gen_height + h
+    end
+    content_height = math.max(content_height, gen_height + 10)
+    content_height = content_height + 30  -- Stats + padding
+
+    local max_scroll = math.max(0, content_height - UI_HEIGHT)
+    if scroll > max_scroll then game.scroll[3] = max_scroll scroll = max_scroll end
+
     -- Campaigns (left side)
-    print("CAMPAIGNS", 4, 14, 11)
-    local y = 22
+    local header_y = UI_TOP - scroll
+    if header_y >= UI_TOP - 8 and header_y < UI_BOTTOM then
+        print("CAMPAIGNS", 4, math.max(UI_TOP, header_y), COLORS.CYAN)
+    end
+    local y = UI_TOP + 8 - scroll
     for i, c in ipairs(marketing.campaigns) do
-        local col = c.owned and 3 or (game.cheer >= c.cost and 12 or 6)
-        rect(4, y, 110, 10, col)
-        local status = c.owned and "[OK]" or format_num(c.cost)
-        print(c.name..": "..status, 6, y+2, 0)
-        y = y + 12
+        local col = c.owned and COLORS.ORANGE or (game.cheer >= c.cost and COLORS.LIGHT_BLUE or COLORS.TEAL)
+        local cost_text = c.owned and "[OK]" or format_num(c.cost)
+        local cost_col = c.owned and COLORS.GREEN or COLORS.DARK_BLUE
+        local height, _, _ = get_button_layout(c.name, cost_text, btn_width, c.desc)
+        if y >= UI_TOP - height and y < UI_BOTTOM then
+            if y >= UI_TOP then
+                draw_button(4, y, btn_width, c.name, cost_text, col, COLORS.BLACK, cost_col, c.desc)
+            end
+        end
+        y = y + height
     end
 
     -- Generators (right side)
-    print("GENERATORS", 124, 14, 11)
-    y = 22
+    local header_y2 = UI_TOP - scroll
+    if header_y2 >= UI_TOP - 8 and header_y2 < UI_BOTTOM then
+        print("GENERATORS", 124, math.max(UI_TOP, header_y2), COLORS.CYAN)
+    end
+    local y2 = UI_TOP + 8 - scroll
     for i, g in ipairs(marketing.generators) do
-        local col = game.cheer >= g.cost and 6 or 1
-        if g.count > 0 then col = 5 end
-        rect(124, y, 110, 10, col)
-        print(g.name.." x"..g.count, 126, y+2, 11)
-        print(format_num(g.cost), 200, y+2, 12)
-        y = y + 12
+        local col = game.cheer >= g.cost and COLORS.LIGHT_BLUE or COLORS.TEAL
+        if g.count > 0 then col = COLORS.GREEN end
+        local g_name = g.name.." x"..g.count
+        local g_cost = format_num(g.cost)
+        local height, _, _ = get_button_layout(g_name, g_cost, btn_width, g.desc)
+        if y2 >= UI_TOP - height and y2 < UI_BOTTOM then
+            if y2 >= UI_TOP then
+                draw_button(124, y2, btn_width, g_name, g_cost, col, COLORS.BLACK, COLORS.DARK_BLUE, g.desc)
+            end
+        end
+        y2 = y2 + height
     end
 
-    -- Passive cheer rate
-    print("Passive HC: +"..format_num(get_passive_cheer_rate()).."/s", 4, 100, 12)
-    print("Cheer Mult: x"..string.format("%.1f", marketing.cheer_mult), 4, 110, 11)
+    -- Passive cheer rate (use the larger of y or y2 to avoid overlap)
+    local stats_y = math.max(y, y2) + 4
+    if stats_y >= UI_TOP and stats_y < UI_BOTTOM then
+        print("Passive: +"..format_num(get_passive_cheer_rate()).."/s", 4, stats_y, 12)
+    end
+    if stats_y + 10 >= UI_TOP and stats_y + 10 < UI_BOTTOM then
+        print("Mult: x"..string.format("%.1f", marketing.cheer_mult), 4, stats_y + 10, 11)
+    end
+
+    -- Scroll indicator
+    if max_scroll > 0 then
+        local bar_h = math.max(10, UI_HEIGHT * UI_HEIGHT / content_height)
+        local bar_y = UI_TOP + (scroll / max_scroll) * (UI_HEIGHT - bar_h)
+        rect(236, UI_TOP, 3, UI_HEIGHT, 1)
+        rect(236, bar_y, 3, bar_h, 12)
+    end
+end
+
+-- Helper to calculate button/item height based on text width
+-- Returns height, whether it needs two lines, and whether it has a description
+-- Height: 12 for single line, 20 for two lines, +8 for description
+function get_button_layout(name, cost_text, button_width, desc)
+    -- TIC-80 default font: each char is 6 pixels wide (5px char + 1px spacing)
+    -- Button has 4px padding on each side = 8px total padding
+    local usable_width = button_width - 8
+    local name_width = #name * 6
+    local cost_width = #cost_text * 6
+    local total_width = name_width + cost_width + 8  -- 8px min gap between name and cost
+    local two_lines = total_width > usable_width
+    local base_height = two_lines and 20 or 12
+    local has_desc = desc and #desc > 0
+    if has_desc then
+        base_height = base_height + 8  -- Add space for description line
+    end
+    return base_height, two_lines, has_desc
 end
 
 -- Helper to calculate upgrade item height (single or two-line)
 function get_upgrade_item_height(u, column_width)
-    -- Each char is ~6 pixels wide in default font
-    local name_width = #u.name * 6
     local cost_text = u.owned and "[OK]" or format_num(u.cost)
-    local cost_width = #cost_text * 6
-    local total_width = name_width + cost_width + 10  -- 10px gap
-    if total_width > column_width then
-        return 20  -- Two lines: 8px text + 4px gap + 8px text
+    local height, _, _ = get_button_layout(u.name, cost_text, column_width, u.desc)
+    return height
+end
+
+-- Helper to draw a button with proper text layout (handles overflow)
+-- cost_color should be a distinct color to make costs stand out
+-- desc is optional description text shown below the name/cost
+-- When two_lines: name, then desc (if any), then cost on last line
+function draw_button(x, y, width, name, cost_text, bg_color, name_color, cost_color, desc)
+    local height, two_lines, has_desc = get_button_layout(name, cost_text, width, desc)
+    rect(x, y, width, height, bg_color)
+    if two_lines then
+        -- Multi-line layout: name first, desc in middle (if any), cost last
+        print(name, x + 4, y + 2, name_color)
+        if has_desc then
+            print(desc, x + 4, y + 11, COLORS.DARK_PURPLE)
+            print(cost_text, x + 8, y + 20, cost_color)
+        else
+            print(cost_text, x + 8, y + 11, cost_color)
+        end
+    else
+        -- Single line: name left, cost right-aligned
+        print(name, x + 4, y + 3, name_color)
+        local cost_x = x + width - (#cost_text * 6) - 4
+        print(cost_text, cost_x, y + 3, cost_color)
+        if has_desc then
+            print(desc, x + 4, y + 12, COLORS.DARK_PURPLE)
+        end
     end
-    return 12  -- Single line
+    return height
 end
 
 function draw_upgrades()
     local scroll = game.scroll[4]
+    local col_width = 115  -- Column width (~50% of screen)
 
     -- Calculate content height dynamically
     local content_height = 10  -- Header
     for _, u in ipairs(upgrades.production) do
-        content_height = content_height + get_upgrade_item_height(u, 110)
+        content_height = content_height + get_upgrade_item_height(u, col_width)
     end
     content_height = content_height + 14  -- Gap + cheer header
     for _, u in ipairs(upgrades.cheer) do
@@ -1011,24 +1251,17 @@ function draw_upgrades()
 
     -- Production upgrades (left column)
     if y >= UI_TOP - 8 and y < UI_BOTTOM then
-        print("PRODUCTION", 4, math.max(UI_TOP, y), 11)
+        print("PRODUCTION", 4, math.max(UI_TOP, y), COLORS.CYAN)
     end
     y = y + 10
     for i, u in ipairs(upgrades.production) do
-        local item_h = get_upgrade_item_height(u, 110)
+        local cost_text = u.owned and "[OK]" or format_num(u.cost)
+        local item_h = get_upgrade_item_height(u, col_width)
         if y >= UI_TOP - item_h and y < UI_BOTTOM then
-            local col = u.owned and 5 or 12
-            local cost_text = u.owned and "[OK]" or format_num(u.cost)
-            if item_h > 12 then
-                -- Two-line layout: name on first line, cost on second
-                if y >= UI_TOP then print(u.name, 6, y, col) end
-                if y + 10 >= UI_TOP then print(cost_text, 10, y + 10, u.owned and 5 or 4) end
-            else
-                -- Single line
-                if y >= UI_TOP then
-                    print(u.name, 6, y, col)
-                    print(cost_text, 70, y, u.owned and 5 or 4)
-                end
+            local bg_col = u.owned and COLORS.GREEN or (game.cheer >= u.cost and COLORS.LIGHT_BLUE or COLORS.TEAL)
+            local cost_col = u.owned and COLORS.GREEN or COLORS.DARK_BLUE
+            if y >= UI_TOP then
+                draw_button(4, y, col_width, u.name, cost_text, bg_col, COLORS.BLACK, cost_col, u.desc)
             end
         end
         y = y + item_h
@@ -1037,24 +1270,17 @@ function draw_upgrades()
     -- Delivery upgrades (right column) - reset y for parallel column
     local y2 = UI_TOP - scroll
     if y2 >= UI_TOP - 8 and y2 < UI_BOTTOM then
-        print("DELIVERY", 124, math.max(UI_TOP, y2), 12)
+        print("DELIVERY", 124, math.max(UI_TOP, y2), COLORS.WHITE)
     end
     y2 = y2 + 10
     for i, u in ipairs(upgrades.delivery) do
-        local item_h = get_upgrade_item_height(u, 110)
+        local cost_text = u.owned and "[OK]" or format_num(u.cost)
+        local item_h = get_upgrade_item_height(u, col_width)
         if y2 >= UI_TOP - item_h and y2 < UI_BOTTOM then
-            local col = u.owned and 5 or 12
-            local cost_text = u.owned and "[OK]" or format_num(u.cost)
-            if item_h > 12 then
-                -- Two-line layout
-                if y2 >= UI_TOP then print(u.name, 126, y2, col) end
-                if y2 + 10 >= UI_TOP then print(cost_text, 130, y2 + 10, u.owned and 5 or 4) end
-            else
-                -- Single line
-                if y2 >= UI_TOP then
-                    print(u.name, 126, y2, col)
-                    print(cost_text, 190, y2, u.owned and 5 or 4)
-                end
+            local bg_col = u.owned and COLORS.GREEN or (game.cheer >= u.cost and COLORS.LIGHT_BLUE or COLORS.TEAL)
+            local cost_col = u.owned and COLORS.GREEN or COLORS.DARK_BLUE
+            if y2 >= UI_TOP then
+                draw_button(124, y2, col_width, u.name, cost_text, bg_col, COLORS.BLACK, cost_col, u.desc)
             end
         end
         y2 = y2 + item_h
@@ -1065,24 +1291,17 @@ function draw_upgrades()
 
     -- Cheer upgrades (full width)
     if y >= UI_TOP - 8 and y < UI_BOTTOM then
-        print("CHEER BOOSTS", 4, y, 14)
+        print("CHEER BOOSTS", 4, y, COLORS.GRAY)
     end
     y = y + 10
     for i, u in ipairs(upgrades.cheer) do
+        local cost_text = u.owned and "[OK]" or format_num(u.cost)
         local item_h = get_upgrade_item_height(u, 230)
         if y >= UI_TOP - item_h and y < UI_BOTTOM then
-            local col = u.owned and 5 or 12
-            local cost_text = u.owned and "[OK]" or format_num(u.cost)
-            if item_h > 12 then
-                -- Two-line layout
-                if y >= UI_TOP then print(u.name, 6, y, col) end
-                if y + 10 >= UI_TOP then print(cost_text, 10, y + 10, u.owned and 5 or 4) end
-            else
-                -- Single line
-                if y >= UI_TOP then
-                    print(u.name, 6, y, col)
-                    print(cost_text, 100, y, u.owned and 5 or 4)
-                end
+            local bg_col = u.owned and COLORS.GREEN or (game.cheer >= u.cost and COLORS.LIGHT_BLUE or COLORS.TEAL)
+            local cost_col = u.owned and COLORS.GREEN or COLORS.DARK_BLUE
+            if y >= UI_TOP then
+                draw_button(4, y, 230, u.name, cost_text, bg_col, COLORS.BLACK, cost_col, u.desc)
             end
         end
         y = y + item_h
@@ -1092,24 +1311,17 @@ function draw_upgrades()
     if game.cheer >= 100000000 then
         y = y + 4
         if y >= UI_TOP - 8 and y < UI_BOTTOM then
-            print("ANTI-SANTA WEAPONS", 4, y, 2)
+            print("ANTI-SANTA", 4, y, COLORS.DARK_RED)
         end
         y = y + 10
         for i, u in ipairs(upgrades.weapons) do
+            local cost_text = u.owned and "[OK]" or format_num(u.cost)
             local item_h = get_upgrade_item_height(u, 230)
             if y >= UI_TOP - item_h and y < UI_BOTTOM then
-                local col = u.owned and 5 or 12
-                local cost_text = u.owned and "[OK]" or format_num(u.cost)
-                if item_h > 12 then
-                    -- Two-line layout
-                    if y >= UI_TOP then print(u.name, 6, y, col) end
-                    if y + 10 >= UI_TOP then print(cost_text, 10, y + 10, u.owned and 5 or 4) end
-                else
-                    -- Single line
-                    if y >= UI_TOP then
-                        print(u.name, 6, y, col)
-                        print(cost_text, 120, y, u.owned and 5 or 4)
-                    end
+                local bg_col = u.owned and COLORS.GREEN or (game.cheer >= u.cost and COLORS.LIGHT_BLUE or COLORS.TEAL)
+                local cost_col = u.owned and COLORS.GREEN or COLORS.DARK_BLUE
+                if y >= UI_TOP then
+                    draw_button(4, y, 230, u.name, cost_text, bg_col, COLORS.BLACK, cost_col, u.desc)
                 end
             end
             y = y + item_h
