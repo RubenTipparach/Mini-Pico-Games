@@ -1,4 +1,5 @@
 local game = {
+    state = "splash",    -- "splash" or "playing"
     cheer = 0,           -- Main currency: Holiday Cheer
     toys = 0,            -- Toys in warehouse
     delivered = 0,       -- Total toys delivered
@@ -13,6 +14,19 @@ local game = {
     snowflakes = {},     -- Background snow
     scroll = {0, 0, 0, 0}, -- Scroll offset for each tab
 }
+
+-- Lobby elves for splash screen
+local lobby_elves = {}
+for i = 1, 8 do
+    table.insert(lobby_elves, {
+        x = math.random(20, 220),
+        y = math.random(70, 110),
+        dir = math.random() > 0.5 and 1 or -1,
+        speed = 0.3 + math.random() * 0.4,
+        type = math.random() > 0.5 and 1 or 2,  -- green or blue elf
+        pause = 0,  -- pause timer when reaching destination
+    })
+end
 
 -- UI constants
 local UI_TOP = 14        -- Content starts below header
@@ -943,17 +957,6 @@ function draw_upgrades()
 end
 
 -- =====================
--- MAIN LOOP
--- =====================
-function TIC()
-    if not game.won then
-        handle_input()
-        update_game()
-    end
-    draw_game()
-end
-
--- =====================
 -- SPRITE CONSTANTS
 -- =====================
 -- SPRITE DATA & INITIALIZATION
@@ -1313,12 +1316,155 @@ function draw_snow_background()
 end
 
 -- =====================
+-- SPLASH SCREEN
+-- =====================
+function update_splash()
+    game.frame = game.frame + 1
+
+    -- Update lobby elves walking around
+    for _, elf in ipairs(lobby_elves) do
+        if elf.pause > 0 then
+            elf.pause = elf.pause - 1
+        else
+            elf.x = elf.x + elf.dir * elf.speed
+            -- Bounce off walls or randomly change direction
+            if elf.x < 20 then
+                elf.x = 20
+                elf.dir = 1
+                elf.pause = math.random(30, 90)
+            elseif elf.x > 220 then
+                elf.x = 220
+                elf.dir = -1
+                elf.pause = math.random(30, 90)
+            elseif math.random() < 0.005 then
+                elf.dir = -elf.dir
+                elf.pause = math.random(20, 60)
+            end
+        end
+    end
+
+    -- Update snowflakes
+    if game.frame % 10 == 0 then
+        table.insert(game.snowflakes, {
+            x = math.random(0, 240),
+            y = 0,
+            speed = math.random(5, 15) / 10
+        })
+    end
+    for i = #game.snowflakes, 1, -1 do
+        local s = game.snowflakes[i]
+        s.y = s.y + s.speed
+        s.x = s.x + math.sin(game.frame/20 + i) * 0.3
+        if s.y > 136 then
+            table.remove(game.snowflakes, i)
+        end
+    end
+end
+
+function draw_splash()
+    cls(0)
+
+    -- Draw snow background
+    for _, s in ipairs(game.snowflakes) do
+        pix(s.x, s.y, 12)
+    end
+
+    -- Draw lobby floor (checkered tile pattern)
+    for tx = 0, 29 do
+        for ty = 8, 13 do
+            local col = ((tx + ty) % 2 == 0) and 15 or 13
+            rect(tx * 8, ty * 10, 8, 10, col)
+        end
+    end
+
+    -- Draw back wall
+    rect(0, 0, 240, 55, 1)   -- Dark wall
+    rect(0, 55, 240, 5, 6)   -- Trim
+
+    -- Draw company logo/sign on wall
+    rect(60, 10, 120, 35, 2)   -- Sign background (dark red)
+    rectb(60, 10, 120, 35, 4)  -- Yellow border
+    rectb(61, 11, 118, 33, 4)  -- Double border
+
+    -- Company name
+    print("SANTA'S RIVAL", 82, 16, 4)
+    print("INC.", 106, 26, 4)
+
+    -- Decorative stars on sign
+    print("*", 68, 18, 4)
+    print("*", 166, 18, 4)
+    print("*", 68, 32, 4)
+    print("*", 166, 32, 4)
+
+    -- Draw windows on wall
+    rect(15, 15, 30, 25, 9)    -- Left window (blue)
+    rectb(15, 15, 30, 25, 0)
+    rect(195, 15, 30, 25, 9)   -- Right window (blue)
+    rectb(195, 15, 30, 25, 0)
+
+    -- Snow outside windows
+    rect(17, 32, 26, 6, 12)
+    rect(197, 32, 26, 6, 12)
+
+    -- Draw Christmas trees in lobby
+    spr(SPR.TREE, 30, 62)
+    spr(SPR.TREE, 200, 62)
+
+    -- Draw reception desk
+    rect(90, 90, 60, 20, 3)   -- Desk (orange/wood)
+    rect(90, 88, 60, 4, 4)    -- Desk top (yellow)
+    print("RECEPTION", 98, 94, 0)
+
+    -- Draw potted plants
+    rect(10, 105, 8, 10, 3)   -- Pot
+    spr(SPR.TREE, 8, 97)      -- Plant
+    rect(222, 105, 8, 10, 3)  -- Pot
+    spr(SPR.TREE, 220, 97)    -- Plant
+
+    -- Draw elves walking around lobby
+    for _, elf in ipairs(lobby_elves) do
+        local bob = math.sin(game.frame * 0.15 + elf.x) * 1
+        local flip = elf.dir < 0 and 1 or 0
+        spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
+    end
+
+    -- Draw "Tap to Start" prompt with pulsing effect
+    local pulse = math.sin(game.frame * 0.08) * 0.5 + 0.5
+    local text_col = pulse > 0.5 and 12 or 11
+
+    -- Background box for text
+    rect(70, 118, 100, 14, 0)
+    rectb(70, 118, 100, 14, text_col)
+
+    print("TAP TO START", 84, 122, text_col)
+
+    -- Decorative gift boxes in lobby
+    spr(SPR.GIFT, 50, 100)
+    spr(SPR.GIFT, 180, 95)
+    spr(SPR.TEDDY, 160, 102)
+end
+
+function handle_splash_input()
+    local _, _, mb = mouse()
+    if mb and not pmb then
+        game.state = "playing"
+    end
+    pmb = mb
+end
+
+-- =====================
 -- MAIN LOOP
 -- =====================
 function TIC()
-    if not game.won then
-        handle_input()
-        update_game()
+    if game.state == "splash" then
+        update_splash()
+        draw_splash()
+        handle_splash_input()
+    else
+        if not game.won then
+            handle_input()
+            update_game()
+        end
+        draw_game()
     end
-    draw_game()
 end
