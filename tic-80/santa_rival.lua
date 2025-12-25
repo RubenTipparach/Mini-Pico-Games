@@ -1252,7 +1252,7 @@ function draw_production_sprites()
     -- Show toys on truck
     local truck_display = math.min(production.truck_toys, 5)
     for t = 1, truck_display do
-        spr(SPR.GIFT, scene_x + 55 + (t-1) * 4 - 2, scene_y + 32)
+        spr(SPR.GIFT, scene_x + 55 + (t-1) * 4 - 2, scene_y + 32, 0)
     end
 
     -- Draw each animated elf worker
@@ -1277,7 +1277,7 @@ function draw_production_sprites()
             local walk_x = scene_x + col * 10 + (w.progress / 100) * 40
             local bob = math.sin(w.progress * 0.3) * 1
             spr(SPR.ELF_PROD, walk_x, base_y + bob)
-            spr(SPR.GIFT, walk_x + 2, base_y - 6)  -- Toy above head
+            spr(SPR.GIFT, walk_x + 2, base_y - 6, 0)  -- Toy above head
 
         elseif w.state == "loading" then
             -- Elf at truck loading
@@ -1285,7 +1285,7 @@ function draw_production_sprites()
             spr(SPR.ELF_PROD, elf_x, base_y)
             -- Toy moving down into truck
             local toy_y = base_y - 6 + (w.progress / 100) * 10
-            spr(SPR.GIFT, elf_x + 8, toy_y)
+            spr(SPR.GIFT, elf_x + 8, toy_y, 0)
         end
     end
 
@@ -1310,7 +1310,7 @@ function draw_delivery_sprites()
     local truck_toys = math.max(0, math.floor(game.toys))
     local display_toys = math.min(truck_toys, 5)
     for t = 1, display_toys do
-        spr(SPR.GIFT, scene_x + (t-1) * 4, scene_y + 32)
+        spr(SPR.GIFT, scene_x + (t-1) * 4, scene_y + 32, 0)
     end
 
     -- Draw house (right side)
@@ -1341,7 +1341,7 @@ function draw_delivery_sprites()
             local bob = math.sin(c.progress * 0.4) * 1
             spr(SPR.ELF_DEL, walk_x, base_y + bob)
             if c.has_toy then
-                spr(SPR.GIFT, walk_x + 2, base_y - 6)
+                spr(SPR.GIFT, walk_x + 2, base_y - 6, 0)
             end
 
         elseif c.state == "delivering" then
@@ -1351,14 +1351,14 @@ function draw_delivery_sprites()
             -- Gift moving toward door
             if c.has_toy then
                 local gift_x = elf_x + 4 + (c.progress / 100) * 6
-                spr(SPR.GIFT, gift_x, base_y - 4 + (c.progress / 100) * 4)
+                spr(SPR.GIFT, gift_x, base_y - 4 + (c.progress / 100) * 4, 0)
             end
         end
     end
 
     -- Flying gift when manually delivering
     if delivery.click_cooldown > 5 then
-        spr(SPR.GIFT, 98, 22 - (10 - delivery.click_cooldown))
+        spr(SPR.GIFT, 98, 22 - (10 - delivery.click_cooldown), 0)
     end
 end
 
@@ -1397,7 +1397,7 @@ function draw_header_icons()
     -- Star icon for cheer in status bar
     spr(SPR.STAR, 52, 127)
     -- Gift icon for toys
-    spr(SPR.GIFT, 112, 127)
+    spr(SPR.GIFT, 112, 127, 0)
 end
 
 function draw_decorations()
@@ -1555,7 +1555,7 @@ function draw_splash()
         spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
         -- Draw present above elf if carrying one
         if elf.has_present then
-            spr(SPR.GIFT, elf.x, elf.y + bob - 8)
+            spr(SPR.GIFT, elf.x, elf.y + bob - 8, 0)
         end
     end
 
