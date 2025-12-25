@@ -1061,22 +1061,36 @@ end
 -- Each sprite is 32 bytes (8x8 pixels, 4 bits per pixel)
 
 -- Sprite data as hex strings (each char = 1 pixel, 0-f = palette color)
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !!! IMPORTANT: COLOR 0 IS TRANSPARENT IN TIC-80 !!!
+-- !!! Use 0 for sprite backgrounds that should be see-through !!!
+-- !!! Use 1 (dark purple) for dark pixels that should be VISIBLE !!!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 local SPRITE_DATA = {
-    -- 001: Production Elf (green hat, pointy ears, light skin, smiling)
-    [1] = "000660000066660006cccc600c0cc0c03cccccc30cc33cc00066660000600600",
-    -- 002: Delivery Elf (blue hat, pointy ears, light skin, smiling)
-    [2] = "000aa00000aaaa000acccca00c0cc0c03cccccc30cc33cc000aaaa0000a00a00",
-    -- 003: Santa (red hat with pompom, white face/beard, red suit, black boots)
-    [3] = "002c2000002222000cccccc00c0cc0c000cccc000cccccc00022220000f00f00",
+    -- 001: Production Elf (green hat, pointy ears, smiling)
+    -- SKIN = color 4 (#ffcd75), Eyes = 1 (visible dark), Background = 0 (transparent)
+    [1] = "0006600000666600064444600414414034444443044334400066660000600600",
+    -- 002: Delivery Elf (blue hat, pointy ears, smiling)
+    -- SKIN = color 4 (#ffcd75), Eyes = 1 (visible dark), Background = 0 (transparent)
+    [2] = "000aa00000aaaa000a4444a00414414034444443044334400aaaa0000a00a00",
+    -- 003: Santa (red hat, skin face, WHITE BEARD = c, red suit, black boots)
+    -- SKIN = color 4 (#ffcd75), BEARD = c (white), Eyes = 1, Background = 0
+    [3] = "002c2000002222000444444004144140004444000cccccc00022220000f00f00",
     -- 004: Teddy Bear (orange fur, button eyes)
+    -- Background uses 0 (TRANSPARENT)
     [4] = "0330033003333330333003333333333303333330333333330330033003300330",
     -- 005: Robot (gray body, blue eyes)
+    -- Background uses 0 (TRANSPARENT)
     [5] = "00dddd000da99ad00ddddddd0dddddd00d9dd9d00ddddddd00d00d0000d00d00",
     -- 006: Toy Train (green engine, wheels)
+    -- Background uses 0 (TRANSPARENT)
     [6] = "000000000066666006f66f6006666660066666600060060006666660000ff000",
     -- 007: Doll (orange hair, red dress)
+    -- Background uses 0 (TRANSPARENT)
     [7] = "00033000003cc30003cccc300c3cc3c003cccc3000333300003003000f300f30",
-    -- 008: Gift Box (green box=6, red ribbon=2, transparent bg=0)
+    -- 008: Gift Box (green=6, red ribbon=2)
+    -- *** BACKGROUND IS 0 = TRANSPARENT ***
+    -- Corners and bottom row are 0 so they show through
     [8] = "0020020000222200066226600662266006622660066226600666666000000000",
     -- 009: Bicycle
     [9] = "0000f0000000ff00000ffff00ff0f0ff0ffffff000ffff0000f00f00f000000f",
