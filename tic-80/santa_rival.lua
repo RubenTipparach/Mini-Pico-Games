@@ -536,6 +536,8 @@ end
 -- =====================
 local prev_btn = false
 local mx, my, mb, pmb = 0, 0, false, false
+local prev_my = 0
+local dragging = false
 
 function handle_input()
     -- Mouse input only (mx, my, mb, scrollx, scrolly, left, middle, right)
@@ -549,8 +551,21 @@ function handle_input()
         if game.scroll[game.tab] < 0 then game.scroll[game.tab] = 0 end
     end
 
-    -- Mouse clicks
-    if mb and not pmb then
+    -- Drag to scroll (when holding mouse in content area)
+    if mb and my >= UI_TOP and my < UI_BOTTOM then
+        if dragging then
+            local delta = prev_my - my
+            game.scroll[game.tab] = game.scroll[game.tab] + delta
+            if game.scroll[game.tab] < 0 then game.scroll[game.tab] = 0 end
+        end
+        dragging = true
+    else
+        dragging = false
+    end
+    prev_my = my
+
+    -- Mouse clicks (only on initial press, not during drag)
+    if mb and not pmb and not dragging then
         -- Tab buttons (top)
         if my < 12 then
             if mx < 60 then game.tab = 1
@@ -672,6 +687,16 @@ function draw_game()
     -- Draw snow BEHIND everything
     draw_snow_background()
 
+    -- Draw animated scenes in BACKGROUND (right side of screen)
+    if game.tab == 1 then
+        draw_production_sprites()
+    elseif game.tab == 2 then
+        draw_delivery_sprites()
+    elseif game.tab == 3 then
+        draw_marketing_sprites()
+    end
+    draw_decorations()
+
     -- Header bar
     rect(0, 0, 240, 12, 1)
 
@@ -684,7 +709,7 @@ function draw_game()
         print(t, x + 8, 2, 0)
     end
 
-    -- Draw current tab content first
+    -- Draw current tab UI content ON TOP of background
     if game.tab == 1 then
         draw_production()
     elseif game.tab == 2 then
@@ -703,6 +728,9 @@ function draw_game()
     print("Toys:"..format_num(game.toys), 70, 126, 11)
     print("Santa:"..format_num(game.santa_cheer), 140, 126, 2)
     print(string.format("%d:%02d", math.floor(game.time/60), game.time%60), 210, 126, 13)
+
+    -- Santa bouncing in status bar area
+    draw_santa_competitor()
 
     -- Draw floating messages
     for _, m in ipairs(game.messages) do
@@ -935,10 +963,11 @@ end
 
 -- Sprite data as hex strings (each char = 1 pixel, 0-f = palette color)
 local SPRITE_DATA = {
-    -- 001: Production Elf (green hat, white face, green body)
-    [1] = "0006600000666600006cc60000cccc0006666660066006600060060000600600",
-    -- 002: Delivery Elf (blue variant)
-    [2] = "0009900000999900009cc90000cccc0009999990099009900090090000900900",
+    -- 001: Production Elf (big smiling cheery head, green hat)
+    -- Big round face with rosy cheeks (3) and wide smile
+    [1] = "00066000006666000cccccc0c0c00c0c3cccccc30cc33cc00066660000600600",
+    -- 002: Delivery Elf (big smiling cheery head, blue hat)
+    [2] = "00099000009999000cccccc0c0c00c0c3cccccc30cc33cc00099990000900900",
     -- 003: Santa (red suit, white beard, black boots)
     [3] = "00ccc000002c2000002cc20000cccc0002cccc20022222200020020000f00f00",
     -- 004: Teddy Bear (orange fur, button eyes)
@@ -1292,17 +1321,4 @@ function TIC()
         update_game()
     end
     draw_game()
-
-    -- Draw sprites on top
-    if game.tab == 1 then
-        draw_production_sprites()
-    elseif game.tab == 2 then
-        draw_delivery_sprites()
-    elseif game.tab == 3 then
-        draw_marketing_sprites()
-    end
-
-    draw_santa_competitor()
-    draw_header_icons()
-    draw_decorations()
 end
