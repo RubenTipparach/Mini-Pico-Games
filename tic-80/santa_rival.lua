@@ -33,6 +33,9 @@ local production = {
     elf_rate = 0.5,         -- Toys per second per elf
     elf_mult = 1,           -- Multiplier from upgrades
 
+    -- Animated elf workers
+    workers = {},           -- Individual elf states
+
     -- Toy Factories
     factories = {
         {name="Workshop", count=0, cost=50, rate=2, owned=false},
@@ -42,6 +45,9 @@ local production = {
         {name="Quantum Forge", count=0, cost=500000, rate=2000, owned=false},
     },
     factory_mult = 1,
+
+    -- Truck for loading toys
+    truck_toys = 0,         -- Toys loaded on truck (visual only)
 }
 
 -- =====================
@@ -58,6 +64,9 @@ local delivery = {
     elf_cost = 20,
     elf_rate = 0.3,         -- Deliveries per second per elf
     elf_mult = 1,
+
+    -- Animated delivery couriers
+    couriers = {},          -- Individual courier states
 
     -- Delivery methods
     methods = {
@@ -322,6 +331,107 @@ function buy_upgrade(category, idx)
 end
 
 -- =====================
+-- ELF WORKER ANIMATION SYSTEM
+-- =====================
+function update_elf_workers()
+    -- Sync worker count with elf count
+    while #production.workers < production.elves do
+        table.insert(production.workers, {
+            progress = 0,
+            state = "building",  -- building, carrying, loading
+            speed = 0.8 + math.random() * 0.4,  -- 0.8-1.2 variation
+            x = 0, y = 0,
+            slot = #production.workers + 1,
+        })
+    end
+    while #production.workers > production.elves do
+        table.remove(production.workers)
+    end
+
+    -- Update each worker
+    local base_speed = production.elf_rate * production.elf_mult
+    for i, w in ipairs(production.workers) do
+        local speed_mult = base_speed * w.speed * 1.5  -- Scale for animation
+
+        if w.state == "building" then
+            w.progress = w.progress + speed_mult
+            if w.progress >= 100 then
+                w.state = "carrying"
+                w.progress = 0
+            end
+        elseif w.state == "carrying" then
+            w.progress = w.progress + speed_mult * 2
+            if w.progress >= 100 then
+                w.state = "loading"
+                w.progress = 0
+            end
+        elseif w.state == "loading" then
+            w.progress = w.progress + speed_mult * 3
+            if w.progress >= 100 then
+                -- Toy completed!
+                game.toys = game.toys + 1
+                production.truck_toys = production.truck_toys + 1
+                w.state = "building"
+                w.progress = 0
+                w.speed = 0.8 + math.random() * 0.4  -- Re-randomize
+            end
+        end
+    end
+end
+
+function update_elf_couriers()
+    -- Sync courier count with elf count
+    while #delivery.couriers < delivery.elves do
+        table.insert(delivery.couriers, {
+            progress = 0,
+            state = "pickup",  -- pickup, walking, delivering
+            speed = 0.8 + math.random() * 0.4,
+            slot = #delivery.couriers + 1,
+            has_toy = false,
+        })
+    end
+    while #delivery.couriers > delivery.elves do
+        table.remove(delivery.couriers)
+    end
+
+    -- Update each courier
+    local base_speed = delivery.elf_rate * delivery.elf_mult
+    for i, c in ipairs(delivery.couriers) do
+        local speed_mult = base_speed * c.speed * 1.5
+
+        if c.state == "pickup" then
+            if game.toys >= 1 then
+                c.progress = c.progress + speed_mult * 2
+                if c.progress >= 100 then
+                    game.toys = game.toys - 1
+                    c.has_toy = true
+                    c.state = "walking"
+                    c.progress = 0
+                end
+            end
+        elseif c.state == "walking" then
+            c.progress = c.progress + speed_mult
+            if c.progress >= 100 then
+                c.state = "delivering"
+                c.progress = 0
+            end
+        elseif c.state == "delivering" then
+            c.progress = c.progress + speed_mult * 2
+            if c.progress >= 100 then
+                -- Delivery completed!
+                game.delivered = game.delivered + 1
+                local cheer_gain = delivery.cheer_per_toy * marketing.cheer_mult
+                game.cheer = game.cheer + cheer_gain
+                c.has_toy = false
+                c.state = "pickup"
+                c.progress = 0
+                c.speed = 0.8 + math.random() * 0.4
+            end
+        end
+    end
+end
+
+-- =====================
 -- GAME UPDATE
 -- =====================
 function update_game()
@@ -332,13 +442,24 @@ function update_game()
         game.time = game.time + 1
     end
 
-    -- Production tick (every frame, scaled)
-    local toy_rate = get_toy_rate() / 60
-    game.toys = game.toys + toy_rate
+    -- Animated elf workers (produce toys discretely)
+    update_elf_workers()
+    update_elf_couriers()
 
-    -- Delivery tick
-    local del_rate = get_delivery_rate() / 60
-    if game.toys >= del_rate then
+    -- Factory production (still fractional/automatic)
+    local factory_rate = 0
+    for _, f in ipairs(production.factories) do
+        factory_rate = factory_rate + f.count * f.rate * production.factory_mult
+    end
+    game.toys = game.toys + factory_rate / 60
+
+    -- Automated delivery methods (fractional)
+    local method_rate = 0
+    for _, m in ipairs(delivery.methods) do
+        method_rate = method_rate + m.count * m.rate * delivery.method_mult
+    end
+    local del_rate = method_rate / 60
+    if game.toys >= del_rate and del_rate > 0 then
         game.toys = game.toys - del_rate
         game.delivered = game.delivered + del_rate
         local cheer_gain = del_rate * delivery.cheer_per_toy * marketing.cheer_mult
@@ -964,50 +1085,137 @@ function draw_toy(x, y, type)
 end
 
 -- =====================
--- UPDATED DRAW FUNCTIONS WITH SPRITES
+-- ANIMATED ELF SCENE DRAWING
 -- =====================
+-- Production scene layout:
+-- Left side: Workbenches where elves build toys
+-- Middle: Path to truck
+-- Right: Truck being loaded
+
 function draw_production_sprites()
-    -- Draw elves working
-    for i = 1, math.min(production.elves, 8) do
-        local x = 180 + ((i-1) % 4) * 12
-        local y = 16 + math.floor((i-1) / 4) * 14
-        draw_animated_elf(x, y, "prod", game.frame + i * 7)
+    -- Scene boundaries
+    local scene_x = 160
+    local scene_y = 20
+    local scene_w = 75
+    local scene_h = 90
+
+    -- Draw workbench area (left)
+    rect(scene_x, scene_y + 30, 20, 8, 3)  -- Workbench (orange)
+
+    -- Draw truck (right side)
+    rect(scene_x + 55, scene_y + 25, 18, 14, 14)  -- Truck body
+    rect(scene_x + 55, scene_y + 39, 18, 6, 15)   -- Truck bed
+    circ(scene_x + 59, scene_y + 47, 3, 0)        -- Wheel
+    circ(scene_x + 69, scene_y + 47, 3, 0)        -- Wheel
+
+    -- Show toys on truck
+    local truck_display = math.min(production.truck_toys, 5)
+    for t = 1, truck_display do
+        spr(SPR.GIFT, scene_x + 55 + (t-1) * 4 - 2, scene_y + 32)
     end
 
-    -- Draw factory icons
-    local factory_sprites = {SPR.WORKSHOP, SPR.FACTORY, SPR.MEGAPLANT, SPR.ROBOT, SPR.ROCKET}
-    for i, f in ipairs(production.factories) do
-        if f.count > 0 then
-            local y = 52 + (i-1) * 14
-            spr(factory_sprites[i] or SPR.GIFT, 148, y + 2)
+    -- Draw each animated elf worker
+    for i, w in ipairs(production.workers) do
+        if i > 8 then break end  -- Max 8 visible elves
+
+        local row = math.floor((i-1) / 2)
+        local col = (i-1) % 2
+        local base_y = scene_y + 20 + row * 24
+
+        if w.state == "building" then
+            -- Elf at workbench, hammering
+            local bob = math.sin(w.progress * 0.2) * 2
+            local elf_x = scene_x + col * 10
+            spr(SPR.ELF_PROD, elf_x, base_y + bob)
+            -- Progress bar
+            rect(elf_x, base_y + 10, 8, 2, 1)
+            rect(elf_x, base_y + 10, math.floor(w.progress * 8 / 100), 2, 5)
+
+        elseif w.state == "carrying" then
+            -- Elf walking to truck with toy
+            local walk_x = scene_x + col * 10 + (w.progress / 100) * 40
+            local bob = math.sin(w.progress * 0.3) * 1
+            spr(SPR.ELF_PROD, walk_x, base_y + bob)
+            spr(SPR.GIFT, walk_x + 2, base_y - 6)  -- Toy above head
+
+        elseif w.state == "loading" then
+            -- Elf at truck loading
+            local elf_x = scene_x + 45
+            spr(SPR.ELF_PROD, elf_x, base_y)
+            -- Toy moving down into truck
+            local toy_y = base_y - 6 + (w.progress / 100) * 10
+            spr(SPR.GIFT, elf_x + 8, toy_y)
         end
     end
 
-    -- Floating toys when producing
+    -- Floating toy when manually producing
     if production.click_cooldown > 5 then
         spr(SPR.TEDDY, 98, 22 - (10 - production.click_cooldown))
     end
 end
 
 function draw_delivery_sprites()
-    -- Draw delivery elves
-    for i = 1, math.min(delivery.elves, 8) do
-        local x = 180 + ((i-1) % 4) * 12
-        local y = 16 + math.floor((i-1) / 4) * 14
-        draw_animated_elf(x, y, "del", game.frame + i * 5)
+    -- Scene boundaries
+    local scene_x = 160
+    local scene_y = 20
+
+    -- Draw truck with toys (left)
+    rect(scene_x, scene_y + 25, 18, 14, 9)   -- Truck body (blue)
+    rect(scene_x, scene_y + 39, 18, 6, 8)    -- Truck bed
+    circ(scene_x + 4, scene_y + 47, 3, 0)    -- Wheel
+    circ(scene_x + 14, scene_y + 47, 3, 0)   -- Wheel
+
+    -- Show toys on delivery truck
+    local truck_toys = math.max(0, math.floor(game.toys))
+    local display_toys = math.min(truck_toys, 5)
+    for t = 1, display_toys do
+        spr(SPR.GIFT, scene_x + (t-1) * 4, scene_y + 32)
     end
 
-    -- Draw vehicle icons
-    local vehicle_sprites = {SPR.BICYCLE, SPR.VAN, SPR.DRONE, SPR.ROCKET, SPR.TELEPORT}
-    for i, m in ipairs(delivery.methods) do
-        if m.count > 0 then
-            local y = 52 + (i-1) * 14
-            local wobble = math.sin(game.frame/10 + i) * 1
-            spr(vehicle_sprites[i], 148, y + 2 + wobble)
+    -- Draw house (right side)
+    rect(scene_x + 55, scene_y + 30, 18, 16, 3)   -- House body
+    tri(scene_x + 54, scene_y + 30, scene_x + 64, scene_y + 18, scene_x + 74, scene_y + 30, 2)  -- Roof
+    rect(scene_x + 60, scene_y + 38, 6, 8, 4)     -- Door
+
+    -- Draw each animated courier
+    for i, c in ipairs(delivery.couriers) do
+        if i > 8 then break end
+
+        local row = math.floor((i-1) / 2)
+        local col = (i-1) % 2
+        local base_y = scene_y + 22 + row * 20
+
+        if c.state == "pickup" then
+            -- Elf at truck picking up toy
+            local elf_x = scene_x + 18
+            local bob = math.sin(c.progress * 0.2) * 1
+            spr(SPR.ELF_DEL, elf_x, base_y + bob)
+            -- Progress bar
+            rect(elf_x, base_y + 10, 8, 2, 1)
+            rect(elf_x, base_y + 10, math.floor(c.progress * 8 / 100), 2, 10)
+
+        elseif c.state == "walking" then
+            -- Elf walking to house with toy
+            local walk_x = scene_x + 18 + (c.progress / 100) * 35
+            local bob = math.sin(c.progress * 0.4) * 1
+            spr(SPR.ELF_DEL, walk_x, base_y + bob)
+            if c.has_toy then
+                spr(SPR.GIFT, walk_x + 2, base_y - 6)
+            end
+
+        elseif c.state == "delivering" then
+            -- Elf at door delivering
+            local elf_x = scene_x + 50
+            spr(SPR.ELF_DEL, elf_x, base_y)
+            -- Gift moving toward door
+            if c.has_toy then
+                local gift_x = elf_x + 4 + (c.progress / 100) * 6
+                spr(SPR.GIFT, gift_x, base_y - 4 + (c.progress / 100) * 4)
+            end
         end
     end
 
-    -- Gift flying when delivering
+    -- Flying gift when manually delivering
     if delivery.click_cooldown > 5 then
         spr(SPR.GIFT, 98, 22 - (10 - delivery.click_cooldown))
     end
