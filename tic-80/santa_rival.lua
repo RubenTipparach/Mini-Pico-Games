@@ -20,11 +20,12 @@ local lobby_elves = {}
 for i = 1, 8 do
     table.insert(lobby_elves, {
         x = math.random(20, 220),
-        y = math.random(70, 110),
+        y = math.random(95, 120),  -- Bottom 1/3 of screen
         dir = math.random() > 0.5 and 1 or -1,
         speed = 0.3 + math.random() * 0.4,
         type = math.random() > 0.5 and 1 or 2,  -- green or blue elf
         pause = 0,  -- pause timer when reaching destination
+        has_present = math.random() > 0.5,  -- some carry presents
     })
 end
 
@@ -1370,91 +1371,84 @@ function draw_splash()
         pix(s.x, s.y, 12)
     end
 
-    -- Draw lobby floor (checkered tile pattern)
+    -- Draw lobby floor (bottom 1/3 - checkered tile pattern)
+    local floor_start = 90  -- 2/3 of 136
     for tx = 0, 29 do
-        for ty = 8, 13 do
+        for ty = 0, 5 do
             local col = ((tx + ty) % 2 == 0) and 15 or 13
-            rect(tx * 8, ty * 10, 8, 10, col)
+            rect(tx * 8, floor_start + ty * 8, 8, 8, col)
         end
     end
 
-    -- Draw back wall
-    rect(0, 0, 240, 55, 1)   -- Dark wall
-    rect(0, 55, 240, 5, 6)   -- Trim
+    -- Draw back wall (top 2/3 of screen)
+    rect(0, 0, 240, 85, 1)   -- Dark wall
+    rect(0, 85, 240, 5, 6)   -- Green trim at bottom of wall
 
-    -- Draw company logo/sign on wall
-    rect(60, 10, 120, 35, 2)   -- Sign background (dark red)
-    rectb(60, 10, 120, 35, 4)  -- Yellow border
-    rectb(61, 11, 118, 33, 4)  -- Double border
+    -- Draw company logo/sign on wall (larger)
+    rect(30, 8, 180, 70, 2)   -- Sign background (dark red)
+    rectb(30, 8, 180, 70, 4)  -- Yellow border
+    rectb(31, 9, 178, 68, 4)  -- Double border
+    rectb(32, 10, 176, 66, 4) -- Triple border for emphasis
 
-    -- Company name (bold outlined text)
-    -- Draw outline by printing in all directions
+    -- Company name (double size bold outlined text)
     local title1 = "CANDY CANE"
     local title2 = "LLC"
-    local t1x, t1y = 85, 16
-    local t2x, t2y = 106, 26
-    -- Outline (dark red/black)
+    local t1x, t1y = 60, 22
+    local t2x, t2y = 96, 48
+    -- Outline (black) - scale 2
     for ox = -1, 1 do
         for oy = -1, 1 do
             if ox ~= 0 or oy ~= 0 then
-                print(title1, t1x + ox, t1y + oy, 0)
-                print(title2, t2x + ox, t2y + oy, 0)
+                print(title1, t1x + ox, t1y + oy, 0, false, 2)
+                print(title2, t2x + ox, t2y + oy, 0, false, 2)
             end
         end
     end
-    -- Main text (yellow/gold)
-    print(title1, t1x, t1y, 4)
-    print(title2, t2x, t2y, 4)
+    -- Main text (yellow/gold) - scale 2
+    print(title1, t1x, t1y, 4, false, 2)
+    print(title2, t2x, t2y, 4, false, 2)
 
-    -- Decorative stars on sign
-    print("*", 68, 18, 4)
-    print("*", 166, 18, 4)
-    print("*", 68, 32, 4)
-    print("*", 166, 32, 4)
+    -- Decorative stars on sign corners
+    print("*", 38, 16, 4)
+    print("*", 196, 16, 4)
+    print("*", 38, 64, 4)
+    print("*", 196, 64, 4)
+    -- Extra stars
+    print("*", 38, 40, 4)
+    print("*", 196, 40, 4)
 
-    -- Draw windows on wall
-    rect(15, 15, 30, 25, 9)    -- Left window (blue)
-    rectb(15, 15, 30, 25, 0)
-    rect(195, 15, 30, 25, 9)   -- Right window (blue)
-    rectb(195, 15, 30, 25, 0)
+    -- Draw windows on wall (above the sign)
+    rect(5, 20, 20, 30, 9)    -- Left window (blue/night sky)
+    rectb(5, 20, 20, 30, 0)
+    rect(215, 20, 20, 30, 9)  -- Right window (blue/night sky)
+    rectb(215, 20, 20, 30, 0)
 
     -- Snow outside windows
-    rect(17, 32, 26, 6, 12)
-    rect(197, 32, 26, 6, 12)
+    rect(7, 42, 16, 6, 12)
+    rect(217, 42, 16, 6, 12)
 
-    -- Draw Christmas trees in lobby
-    spr(SPR.TREE, 30, 62)
-    spr(SPR.TREE, 200, 62)
+    -- Draw potted plants at edges of lobby
+    rect(5, 120, 10, 12, 3)   -- Pot left
+    spr(SPR.TREE, 3, 112)     -- Plant
+    rect(225, 120, 10, 12, 3) -- Pot right
+    spr(SPR.TREE, 223, 112)   -- Plant
 
-    -- Draw elves BEHIND the reception desk (base y position above desk front)
-    local desk_front = 100  -- y position threshold for depth sorting
+    -- Draw all elves sorted by y position for proper depth
+    -- Sort elves by y for proper layering
+    local sorted_elves = {}
     for _, elf in ipairs(lobby_elves) do
-        local bob = math.sin(game.frame * 0.15 + elf.x) * 1
-        -- Use base y for depth check (not animated), draw with bob
-        if elf.y < desk_front then
-            local flip = elf.dir < 0 and 1 or 0
-            spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
-        end
+        table.insert(sorted_elves, elf)
     end
+    table.sort(sorted_elves, function(a, b) return a.y < b.y end)
 
-    -- Draw reception desk
-    rect(90, 90, 60, 20, 3)   -- Desk (orange/wood)
-    rect(90, 88, 60, 4, 4)    -- Desk top (yellow)
-    print("RECEPTION", 98, 94, 0)
-
-    -- Draw potted plants
-    rect(10, 105, 8, 10, 3)   -- Pot
-    spr(SPR.TREE, 8, 97)      -- Plant
-    rect(222, 105, 8, 10, 3)  -- Pot
-    spr(SPR.TREE, 220, 97)    -- Plant
-
-    -- Draw elves IN FRONT of the reception desk (base y at or below desk front)
-    for _, elf in ipairs(lobby_elves) do
+    -- Draw elves with presents
+    for _, elf in ipairs(sorted_elves) do
         local bob = math.sin(game.frame * 0.15 + elf.x) * 1
-        -- Use base y for depth check (not animated), draw with bob
-        if elf.y >= desk_front then
-            local flip = elf.dir < 0 and 1 or 0
-            spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
+        local flip = elf.dir < 0 and 1 or 0
+        spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
+        -- Draw present above elf if carrying one
+        if elf.has_present then
+            spr(SPR.GIFT, elf.x, elf.y + bob - 8)
         end
     end
 
@@ -1462,16 +1456,11 @@ function draw_splash()
     local pulse = math.sin(game.frame * 0.08) * 0.5 + 0.5
     local text_col = pulse > 0.5 and 12 or 11
 
-    -- Background box for text
-    rect(70, 118, 100, 14, 0)
-    rectb(70, 118, 100, 14, text_col)
+    -- Background box for text (at very bottom)
+    rect(70, 124, 100, 12, 0)
+    rectb(70, 124, 100, 12, text_col)
 
-    print("TAP TO START", 84, 122, text_col)
-
-    -- Decorative gift boxes in lobby
-    spr(SPR.GIFT, 50, 100)
-    spr(SPR.GIFT, 180, 95)
-    spr(SPR.TEDDY, 160, 102)
+    print("TAP TO START", 84, 127, text_col)
 end
 
 function handle_splash_input()
