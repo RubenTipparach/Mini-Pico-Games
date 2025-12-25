@@ -967,10 +967,11 @@ end
 -- Sprite data as hex strings (each char = 1 pixel, 0-f = palette color)
 local SPRITE_DATA = {
     -- 001: Production Elf (big smiling cheery head, green hat)
-    -- Big round face with rosy cheeks (3) and wide smile
-    [1] = "00066000006666000cccccc0c0c00c0c3cccccc30cc33cc00066660000600600",
-    -- 002: Delivery Elf (big smiling cheery head, blue hat)
-    [2] = "00099000009999000cccccc0c0c00c0c3cccccc30cc33cc00099990000900900",
+    -- Dark blue face (9) with dark eyes (1), rosy cheeks (3), orange smile
+    [1] = "0006600000666600099999909191191939999993099339900066660000600600",
+    -- 002: Delivery Elf (big smiling cheery head, light blue hat)
+    -- Dark blue face (9) with dark eyes (1), rosy cheeks (3), orange smile
+    [2] = "000aa00000aaaa00099999909191191939999993099339900aaaa0000a00a00",
     -- 003: Santa (red suit, white beard, black boots)
     [3] = "00ccc000002c2000002cc20000cccc0002cccc20022222200020020000f00f00",
     -- 004: Teddy Bear (orange fur, button eyes)
