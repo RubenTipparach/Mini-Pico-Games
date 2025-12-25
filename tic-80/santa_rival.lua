@@ -1425,6 +1425,17 @@ function draw_splash()
     spr(SPR.TREE, 30, 62)
     spr(SPR.TREE, 200, 62)
 
+    -- Draw elves BEHIND the reception desk (feet above desk front)
+    local desk_front = 108  -- y position of desk front edge
+    for _, elf in ipairs(lobby_elves) do
+        local bob = math.sin(game.frame * 0.15 + elf.x) * 1
+        local feet_y = elf.y + bob + 8  -- bottom of 8px sprite
+        if feet_y < desk_front then
+            local flip = elf.dir < 0 and 1 or 0
+            spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
+        end
+    end
+
     -- Draw reception desk
     rect(90, 90, 60, 20, 3)   -- Desk (orange/wood)
     rect(90, 88, 60, 4, 4)    -- Desk top (yellow)
@@ -1436,11 +1447,14 @@ function draw_splash()
     rect(222, 105, 8, 10, 3)  -- Pot
     spr(SPR.TREE, 220, 97)    -- Plant
 
-    -- Draw elves walking around lobby
+    -- Draw elves IN FRONT of the reception desk (feet at or below desk front)
     for _, elf in ipairs(lobby_elves) do
         local bob = math.sin(game.frame * 0.15 + elf.x) * 1
-        local flip = elf.dir < 0 and 1 or 0
-        spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
+        local feet_y = elf.y + bob + 8
+        if feet_y >= desk_front then
+            local flip = elf.dir < 0 and 1 or 0
+            spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
+        end
     end
 
     -- Draw "Tap to Start" prompt with pulsing effect
