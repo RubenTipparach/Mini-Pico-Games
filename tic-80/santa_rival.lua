@@ -585,6 +585,18 @@ function handle_input()
     local scrollx, scrolly
     mx, my, mb, scrollx, scrolly = mouse()
 
+    -- DEBUG: Hold shift and click to get +10 toys or +10 cheer
+    -- Shift key code is 64 in TIC-80
+    if key(64) and mb and not pmb then
+        if game.tab == 1 then
+            game.toys = game.toys + 10
+            add_message(120, 50, "+10 toys (debug)", 11)
+        elseif game.tab == 2 then
+            game.cheer = game.cheer + 100
+            add_message(120, 50, "+100 HC (debug)", 12)
+        end
+    end
+
     -- Scroll wheel for scrolling content
     if scrolly and scrolly ~= 0 then
         local scroll_amount = scrolly * 14
@@ -698,39 +710,42 @@ function handle_tab_click()
         -- Production upgrades (left column)
         local y = UI_TOP + 10
         for i, u in ipairs(upgrades.production) do
-            if adj_my >= y and adj_my < y + 12 and mx < 120 then
+            local item_h = get_upgrade_item_height(u, 110)
+            if adj_my >= y and adj_my < y + item_h and mx < 120 then
                 buy_upgrade("production", i)
             end
-            y = y + 12
+            y = y + item_h
         end
 
         -- Delivery upgrades (right column)
-        y = UI_TOP + 10
+        local y2 = UI_TOP + 10
         for i, u in ipairs(upgrades.delivery) do
-            if adj_my >= y and adj_my < y + 12 and mx >= 120 then
+            local item_h = get_upgrade_item_height(u, 110)
+            if adj_my >= y2 and adj_my < y2 + item_h and mx >= 120 then
                 buy_upgrade("delivery", i)
             end
-            y = y + 12
+            y2 = y2 + item_h
         end
 
-        -- Calculate where cheer section starts
-        local cheer_start = UI_TOP + 10 + math.max(#upgrades.production, #upgrades.delivery) * 12 + 14
-        y = cheer_start
+        -- Calculate where cheer section starts (use larger of y, y2)
+        y = math.max(y, y2) + 14
         for i, u in ipairs(upgrades.cheer) do
-            if adj_my >= y and adj_my < y + 12 then
+            local item_h = get_upgrade_item_height(u, 230)
+            if adj_my >= y and adj_my < y + item_h then
                 buy_upgrade("cheer", i)
             end
-            y = y + 12
+            y = y + item_h
         end
 
         -- Weapons section (if visible)
         if game.cheer >= 100000000 then
             y = y + 14
             for i, u in ipairs(upgrades.weapons) do
-                if adj_my >= y and adj_my < y + 12 then
+                local item_h = get_upgrade_item_height(u, 230)
+                if adj_my >= y and adj_my < y + item_h then
                     buy_upgrade("weapons", i)
                 end
-                y = y + 12
+                y = y + item_h
             end
         end
     end
@@ -956,10 +971,40 @@ function draw_marketing()
     print("Cheer Mult: x"..string.format("%.1f", marketing.cheer_mult), 4, 110, 11)
 end
 
+-- Helper to calculate upgrade item height (single or two-line)
+function get_upgrade_item_height(u, column_width)
+    -- Each char is ~6 pixels wide in default font
+    local name_width = #u.name * 6
+    local cost_text = u.owned and "[OK]" or format_num(u.cost)
+    local cost_width = #cost_text * 6
+    local total_width = name_width + cost_width + 10  -- 10px gap
+    if total_width > column_width then
+        return 20  -- Two lines: 8px text + 4px gap + 8px text
+    end
+    return 12  -- Single line
+end
+
 function draw_upgrades()
     local scroll = game.scroll[4]
-    local content_height = 12 + (#upgrades.production * 12) + 12 + (#upgrades.cheer * 12) + 12 + (#upgrades.weapons * 12) + 20
-    local max_scroll = math.max(0, content_height - UI_HEIGHT + 20)
+
+    -- Calculate content height dynamically
+    local content_height = 10  -- Header
+    for _, u in ipairs(upgrades.production) do
+        content_height = content_height + get_upgrade_item_height(u, 110)
+    end
+    content_height = content_height + 14  -- Gap + cheer header
+    for _, u in ipairs(upgrades.cheer) do
+        content_height = content_height + get_upgrade_item_height(u, 230)
+    end
+    if game.cheer >= 100000000 then
+        content_height = content_height + 14  -- Gap + weapons header
+        for _, u in ipairs(upgrades.weapons) do
+            content_height = content_height + get_upgrade_item_height(u, 230)
+        end
+    end
+    content_height = content_height + 20  -- Padding
+
+    local max_scroll = math.max(0, content_height - UI_HEIGHT)
     if scroll > max_scroll then game.scroll[4] = max_scroll scroll = max_scroll end
 
     local y = UI_TOP - scroll
@@ -970,16 +1015,23 @@ function draw_upgrades()
     end
     y = y + 10
     for i, u in ipairs(upgrades.production) do
-        if y >= UI_TOP - 10 and y < UI_BOTTOM then
-            local col = u.owned and 5 or 12  -- white text
-            print(u.name, 6, y, col)
-            if not u.owned then
-                print(format_num(u.cost), 70, y, 4)  -- yellow cost
+        local item_h = get_upgrade_item_height(u, 110)
+        if y >= UI_TOP - item_h and y < UI_BOTTOM then
+            local col = u.owned and 5 or 12
+            local cost_text = u.owned and "[OK]" or format_num(u.cost)
+            if item_h > 12 then
+                -- Two-line layout: name on first line, cost on second
+                if y >= UI_TOP then print(u.name, 6, y, col) end
+                if y + 10 >= UI_TOP then print(cost_text, 10, y + 10, u.owned and 5 or 4) end
             else
-                print("[OK]", 70, y, 5)
+                -- Single line
+                if y >= UI_TOP then
+                    print(u.name, 6, y, col)
+                    print(cost_text, 70, y, u.owned and 5 or 4)
+                end
             end
         end
-        y = y + 12
+        y = y + item_h
     end
 
     -- Delivery upgrades (right column) - reset y for parallel column
@@ -989,16 +1041,23 @@ function draw_upgrades()
     end
     y2 = y2 + 10
     for i, u in ipairs(upgrades.delivery) do
-        if y2 >= UI_TOP - 10 and y2 < UI_BOTTOM then
-            local col = u.owned and 5 or 12  -- white text
-            print(u.name, 126, y2, col)
-            if not u.owned then
-                print(format_num(u.cost), 190, y2, 4)  -- yellow cost
+        local item_h = get_upgrade_item_height(u, 110)
+        if y2 >= UI_TOP - item_h and y2 < UI_BOTTOM then
+            local col = u.owned and 5 or 12
+            local cost_text = u.owned and "[OK]" or format_num(u.cost)
+            if item_h > 12 then
+                -- Two-line layout
+                if y2 >= UI_TOP then print(u.name, 126, y2, col) end
+                if y2 + 10 >= UI_TOP then print(cost_text, 130, y2 + 10, u.owned and 5 or 4) end
             else
-                print("[OK]", 190, y2, 5)
+                -- Single line
+                if y2 >= UI_TOP then
+                    print(u.name, 126, y2, col)
+                    print(cost_text, 190, y2, u.owned and 5 or 4)
+                end
             end
         end
-        y2 = y2 + 12
+        y2 = y2 + item_h
     end
 
     -- Use the larger y for next section
@@ -1010,36 +1069,50 @@ function draw_upgrades()
     end
     y = y + 10
     for i, u in ipairs(upgrades.cheer) do
-        if y >= UI_TOP - 10 and y < UI_BOTTOM then
-            local col = u.owned and 5 or 12  -- white text
-            print(u.name, 6, y, col)
-            if not u.owned then
-                print(format_num(u.cost), 80, y, 4)
+        local item_h = get_upgrade_item_height(u, 230)
+        if y >= UI_TOP - item_h and y < UI_BOTTOM then
+            local col = u.owned and 5 or 12
+            local cost_text = u.owned and "[OK]" or format_num(u.cost)
+            if item_h > 12 then
+                -- Two-line layout
+                if y >= UI_TOP then print(u.name, 6, y, col) end
+                if y + 10 >= UI_TOP then print(cost_text, 10, y + 10, u.owned and 5 or 4) end
             else
-                print("[OK]", 80, y, 5)
+                -- Single line
+                if y >= UI_TOP then
+                    print(u.name, 6, y, col)
+                    print(cost_text, 100, y, u.owned and 5 or 4)
+                end
             end
         end
-        y = y + 12
+        y = y + item_h
     end
 
     -- Anti-Santa Weapons (only show if unlocked)
-    if game.cheer >= 100000000 or #upgrades.weapons > 0 then
+    if game.cheer >= 100000000 then
         y = y + 4
         if y >= UI_TOP - 8 and y < UI_BOTTOM then
             print("ANTI-SANTA WEAPONS", 4, y, 2)
         end
         y = y + 10
         for i, u in ipairs(upgrades.weapons) do
-            if y >= UI_TOP - 10 and y < UI_BOTTOM then
+            local item_h = get_upgrade_item_height(u, 230)
+            if y >= UI_TOP - item_h and y < UI_BOTTOM then
                 local col = u.owned and 5 or 12
-                print(u.name, 6, y, col)
-                if not u.owned then
-                    print(format_num(u.cost), 120, y, 4)
+                local cost_text = u.owned and "[OK]" or format_num(u.cost)
+                if item_h > 12 then
+                    -- Two-line layout
+                    if y >= UI_TOP then print(u.name, 6, y, col) end
+                    if y + 10 >= UI_TOP then print(cost_text, 10, y + 10, u.owned and 5 or 4) end
                 else
-                    print("[OK]", 120, y, 5)
+                    -- Single line
+                    if y >= UI_TOP then
+                        print(u.name, 6, y, col)
+                        print(cost_text, 120, y, u.owned and 5 or 4)
+                    end
                 end
             end
-            y = y + 12
+            y = y + item_h
         end
     end
 
@@ -1267,7 +1340,7 @@ function draw_production_sprites()
             -- Elf at workbench, hammering
             local bob = math.sin(w.progress * 0.2) * 2
             local elf_x = scene_x + col * 10
-            spr(SPR.ELF_PROD, elf_x, base_y + bob)
+            spr(SPR.ELF_PROD, elf_x, base_y + bob, 0)  -- colorkey=0 for transparency
             -- Progress bar
             rect(elf_x, base_y + 10, 8, 2, 1)
             rect(elf_x, base_y + 10, math.floor(w.progress * 8 / 100), 2, 5)
@@ -1276,13 +1349,13 @@ function draw_production_sprites()
             -- Elf walking to truck with toy
             local walk_x = scene_x + col * 10 + (w.progress / 100) * 40
             local bob = math.sin(w.progress * 0.3) * 1
-            spr(SPR.ELF_PROD, walk_x, base_y + bob)
+            spr(SPR.ELF_PROD, walk_x, base_y + bob, 0)  -- colorkey=0 for transparency
             spr(SPR.GIFT, walk_x + 2, base_y - 6, 0)  -- Toy above head
 
         elseif w.state == "loading" then
             -- Elf at truck loading
             local elf_x = scene_x + 45
-            spr(SPR.ELF_PROD, elf_x, base_y)
+            spr(SPR.ELF_PROD, elf_x, base_y, 0)  -- colorkey=0 for transparency
             -- Toy moving down into truck
             local toy_y = base_y - 6 + (w.progress / 100) * 10
             spr(SPR.GIFT, elf_x + 8, toy_y, 0)
@@ -1330,7 +1403,7 @@ function draw_delivery_sprites()
             -- Elf at truck picking up toy
             local elf_x = scene_x + 18
             local bob = math.sin(c.progress * 0.2) * 1
-            spr(SPR.ELF_DEL, elf_x, base_y + bob)
+            spr(SPR.ELF_DEL, elf_x, base_y + bob, 0)  -- colorkey=0 for transparency
             -- Progress bar
             rect(elf_x, base_y + 10, 8, 2, 1)
             rect(elf_x, base_y + 10, math.floor(c.progress * 8 / 100), 2, 10)
@@ -1339,7 +1412,7 @@ function draw_delivery_sprites()
             -- Elf walking to house with toy
             local walk_x = scene_x + 18 + (c.progress / 100) * 35
             local bob = math.sin(c.progress * 0.4) * 1
-            spr(SPR.ELF_DEL, walk_x, base_y + bob)
+            spr(SPR.ELF_DEL, walk_x, base_y + bob, 0)  -- colorkey=0 for transparency
             if c.has_toy then
                 spr(SPR.GIFT, walk_x + 2, base_y - 6, 0)
             end
@@ -1347,7 +1420,7 @@ function draw_delivery_sprites()
         elseif c.state == "delivering" then
             -- Elf at door delivering
             local elf_x = scene_x + 50
-            spr(SPR.ELF_DEL, elf_x, base_y)
+            spr(SPR.ELF_DEL, elf_x, base_y, 0)  -- colorkey=0 for transparency
             -- Gift moving toward door
             if c.has_toy then
                 local gift_x = elf_x + 4 + (c.progress / 100) * 6
@@ -1417,9 +1490,10 @@ function draw_snow_background()
         pix(s.x, s.y, 12)
     end
     -- Sprite snowflakes (every 5th one, larger flakes)
+    -- Draw all the way down (no y < 120 check to prevent flickering)
     for i, s in ipairs(game.snowflakes) do
-        if i % 5 == 0 and s.y < 120 then
-            spr(SPR.SNOWFLAKE, s.x, s.y)
+        if i % 5 == 0 then
+            spr(SPR.SNOWFLAKE, s.x, s.y, 0)  -- colorkey=0 for transparency
         end
     end
 end
@@ -1534,11 +1608,11 @@ function draw_splash()
     rect(7, 42, 16, 6, 12)
     rect(217, 42, 16, 6, 12)
 
-    -- Draw potted plants at edges of lobby
-    rect(5, 120, 10, 12, 3)   -- Pot left
-    spr(SPR.TREE, 3, 112)     -- Plant
-    rect(225, 120, 10, 12, 3) -- Pot right
-    spr(SPR.TREE, 223, 112)   -- Plant
+    -- Draw potted Christmas trees at edges of lobby
+    spr(SPR.TREE, 4, 118, 0)  -- Tree left
+    rect(5, 126, 6, 4, 3)     -- Small orange pot left
+    spr(SPR.TREE, 228, 118, 0) -- Tree right
+    rect(229, 126, 6, 4, 3)   -- Small orange pot right
 
     -- Draw all elves sorted by y position for proper depth
     -- Sort elves by y for proper layering
@@ -1552,6 +1626,7 @@ function draw_splash()
     for _, elf in ipairs(sorted_elves) do
         local bob = math.sin(game.frame * 0.15 + elf.x) * 1
         local flip = elf.dir < 0 and 1 or 0
+        -- spr(id, x, y, colorkey, scale, flip, rotate, w, h)
         spr(elf.type, elf.x, elf.y + bob, 0, 1, flip)
         -- Draw present above elf if carrying one
         if elf.has_present then
