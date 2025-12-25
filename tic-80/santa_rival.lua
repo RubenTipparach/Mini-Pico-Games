@@ -7,6 +7,9 @@ local game = {
     frame = 0,           -- Frame counter
     santa_cheer = 100000, -- Santa's starting cheer (he's ahead!)
     santa_rate = 10,     -- Santa gains cheer per second
+    santa_base_rate = 10, -- Base rate before ramping
+    santa_ramp_threshold = 100000, -- Next threshold for Santa to ramp up
+    santa_weapon_mult = 1, -- Multiplier from anti-santa weapons (lower = slower)
     won = false,
     phase = 1,
     tab = 1,             -- Current UI tab (1=Produce, 2=Deliver, 3=Market, 4=Upgrade)
@@ -144,6 +147,12 @@ local upgrades = {
         {name="Carol Singers", cost=3000, mult=1.3, desc="+30% all cheer", owned=false},
         {name="Holiday Magic", cost=30000, mult=1.5, desc="+50% all cheer", owned=false},
         {name="Christmas Spirit", cost=300000, mult=2, desc="+100% all cheer", owned=false},
+    },
+    -- Anti-Santa Weapons (unlocked at 100M cheer)
+    weapons = {
+        {name="Snowball Cannon", cost=100000000, mult=0.5, desc="Halve Santa's rate", owned=false},
+        {name="Coal Catapult", cost=500000000, mult=0.5, desc="Halve again!", owned=false},
+        {name="Blizzard Blaster", cost=2000000000, mult=0.5, desc="Halve once more!", owned=false},
     },
 }
 
@@ -312,37 +321,44 @@ function buy_upgrade(category, idx)
         u = upgrades.production[idx]
     elseif category == "delivery" then
         u = upgrades.delivery[idx]
+    elseif category == "weapons" then
+        u = upgrades.weapons[idx]
     else
         u = upgrades.cheer[idx]
     end
 
-    if not u.owned and game.cheer >= u.cost then
-        game.cheer = game.cheer - u.cost
-        u.owned = true
+    if not u or u.owned then return end
+    if game.cheer < u.cost then return end
 
-        -- Apply upgrade
-        if category == "production" then
-            if u.type == "click" then
-                production.click_power = production.click_power * u.mult
-            elseif u.type == "elf" then
-                production.elf_mult = production.elf_mult * u.mult
-            elseif u.type == "factory" then
-                production.factory_mult = production.factory_mult * u.mult
-            end
-        elseif category == "delivery" then
-            if u.type == "click" then
-                delivery.click_power = delivery.click_power * u.mult
-            elseif u.type == "elf" then
-                delivery.elf_mult = delivery.elf_mult * u.mult
-            elseif u.type == "method" then
-                delivery.method_mult = delivery.method_mult * u.mult
-            end
-        else
-            marketing.cheer_mult = marketing.cheer_mult * u.mult
+    game.cheer = game.cheer - u.cost
+    u.owned = true
+
+    -- Apply upgrade
+    if category == "production" then
+        if u.type == "click" then
+            production.click_power = production.click_power * u.mult
+        elseif u.type == "elf" then
+            production.elf_mult = production.elf_mult * u.mult
+        elseif u.type == "factory" then
+            production.factory_mult = production.factory_mult * u.mult
         end
-
-        add_message(120, 60, u.name.." unlocked!", 11)
+    elseif category == "delivery" then
+        if u.type == "click" then
+            delivery.click_power = delivery.click_power * u.mult
+        elseif u.type == "elf" then
+            delivery.elf_mult = delivery.elf_mult * u.mult
+        elseif u.type == "method" then
+            delivery.method_mult = delivery.method_mult * u.mult
+        end
+    elseif category == "weapons" then
+        -- Anti-Santa weapons halve his output
+        game.santa_weapon_mult = game.santa_weapon_mult * u.mult
+        add_message(120, 50, "Santa slowed!", 5)
+    else
+        marketing.cheer_mult = marketing.cheer_mult * u.mult
     end
+
+    add_message(120, 60, u.name.." unlocked!", 11)
 end
 
 -- =====================
@@ -485,11 +501,21 @@ function update_game()
     local passive = get_passive_cheer_rate() / 60
     game.cheer = game.cheer + passive
 
-    -- Santa also gains cheer (competition!)
-    game.santa_cheer = game.santa_cheer + game.santa_rate / 60
-    -- Santa speeds up over time
+    -- Santa also gains cheer (competition!) - affected by weapons
+    local effective_santa_rate = game.santa_rate * game.santa_weapon_mult
+    game.santa_cheer = game.santa_cheer + effective_santa_rate / 60
+
+    -- Santa ramps up when player gets close (95% of threshold)
+    if game.cheer >= game.santa_ramp_threshold * 0.95 then
+        game.santa_base_rate = game.santa_base_rate * 2
+        game.santa_rate = game.santa_base_rate
+        game.santa_ramp_threshold = game.santa_ramp_threshold * 10
+        add_message(120, 50, "Santa doubles down!", 2)
+    end
+
+    -- Santa also speeds up slowly over time
     if game.frame % 3600 == 0 then -- Every minute
-        game.santa_rate = game.santa_rate * 1.1
+        game.santa_rate = game.santa_rate * 1.05
     end
 
     -- Check milestones
@@ -666,29 +692,46 @@ function handle_tab_click()
         end
 
     elseif game.tab == 4 then -- Upgrades
-        local y = 20
-        -- Production upgrades
+        local scroll = game.scroll[4]
+        local adj_my = my + scroll
+
+        -- Production upgrades (left column)
+        local y = UI_TOP + 10
         for i, u in ipairs(upgrades.production) do
-            if my >= y and my < y + 10 and mx < 120 then
+            if adj_my >= y and adj_my < y + 12 and mx < 120 then
                 buy_upgrade("production", i)
             end
-            y = y + 10
+            y = y + 12
         end
+
         -- Delivery upgrades (right column)
-        y = 20
+        y = UI_TOP + 10
         for i, u in ipairs(upgrades.delivery) do
-            if my >= y and my < y + 10 and mx >= 120 then
+            if adj_my >= y and adj_my < y + 12 and mx >= 120 then
                 buy_upgrade("delivery", i)
             end
-            y = y + 10
+            y = y + 12
         end
-        -- Cheer upgrades (bottom)
-        y = 95
+
+        -- Calculate where cheer section starts
+        local cheer_start = UI_TOP + 10 + math.max(#upgrades.production, #upgrades.delivery) * 12 + 14
+        y = cheer_start
         for i, u in ipairs(upgrades.cheer) do
-            if my >= y and my < y + 10 then
+            if adj_my >= y and adj_my < y + 12 then
                 buy_upgrade("cheer", i)
             end
-            y = y + 10
+            y = y + 12
+        end
+
+        -- Weapons section (if visible)
+        if game.cheer >= 100000000 then
+            y = y + 14
+            for i, u in ipairs(upgrades.weapons) do
+                if adj_my >= y and adj_my < y + 12 then
+                    buy_upgrade("weapons", i)
+                end
+                y = y + 12
+            end
         end
     end
 end
@@ -914,46 +957,98 @@ function draw_marketing()
 end
 
 function draw_upgrades()
-    -- Production upgrades (left)
-    print("PRODUCTION", 4, 14, 11)
-    local y = 22
+    local scroll = game.scroll[4]
+    local content_height = 12 + (#upgrades.production * 12) + 12 + (#upgrades.cheer * 12) + 12 + (#upgrades.weapons * 12) + 20
+    local max_scroll = math.max(0, content_height - UI_HEIGHT + 20)
+    if scroll > max_scroll then game.scroll[4] = max_scroll scroll = max_scroll end
+
+    local y = UI_TOP - scroll
+
+    -- Production upgrades (left column)
+    if y >= UI_TOP - 8 and y < UI_BOTTOM then
+        print("PRODUCTION", 4, math.max(UI_TOP, y), 11)
+    end
+    y = y + 10
     for i, u in ipairs(upgrades.production) do
-        local col = u.owned and 3 or (game.cheer >= u.cost and 11 or 1)
-        print(u.name, 6, y, col)
-        if not u.owned then
-            print(format_num(u.cost), 60, y, 12)
-        else
-            print("[OK]", 60, y, 3)
+        if y >= UI_TOP - 10 and y < UI_BOTTOM then
+            local col = u.owned and 5 or 12  -- white text
+            print(u.name, 6, y, col)
+            if not u.owned then
+                print(format_num(u.cost), 70, y, 4)  -- yellow cost
+            else
+                print("[OK]", 70, y, 5)
+            end
         end
-        y = y + 10
+        y = y + 12
     end
 
-    -- Delivery upgrades (right)
-    print("DELIVERY", 124, 14, 12)
-    y = 22
+    -- Delivery upgrades (right column) - reset y for parallel column
+    local y2 = UI_TOP - scroll
+    if y2 >= UI_TOP - 8 and y2 < UI_BOTTOM then
+        print("DELIVERY", 124, math.max(UI_TOP, y2), 12)
+    end
+    y2 = y2 + 10
     for i, u in ipairs(upgrades.delivery) do
-        local col = u.owned and 3 or (game.cheer >= u.cost and 12 or 1)
-        print(u.name, 126, y, col)
-        if not u.owned then
-            print(format_num(u.cost), 180, y, 12)
-        else
-            print("[OK]", 180, y, 3)
+        if y2 >= UI_TOP - 10 and y2 < UI_BOTTOM then
+            local col = u.owned and 5 or 12  -- white text
+            print(u.name, 126, y2, col)
+            if not u.owned then
+                print(format_num(u.cost), 190, y2, 4)  -- yellow cost
+            else
+                print("[OK]", 190, y2, 5)
+            end
         end
-        y = y + 10
+        y2 = y2 + 12
     end
 
-    -- Cheer upgrades (bottom)
-    print("CHEER BOOSTS", 4, 88, 14)
-    y = 98
+    -- Use the larger y for next section
+    y = math.max(y, y2) + 4
+
+    -- Cheer upgrades (full width)
+    if y >= UI_TOP - 8 and y < UI_BOTTOM then
+        print("CHEER BOOSTS", 4, y, 14)
+    end
+    y = y + 10
     for i, u in ipairs(upgrades.cheer) do
-        local col = u.owned and 3 or (game.cheer >= u.cost and 14 or 1)
-        print(u.name..": "..u.desc, 6, y, col)
-        if not u.owned then
-            print(format_num(u.cost), 160, y, 12)
-        else
-            print("[OK]", 160, y, 3)
+        if y >= UI_TOP - 10 and y < UI_BOTTOM then
+            local col = u.owned and 5 or 12  -- white text
+            print(u.name, 6, y, col)
+            if not u.owned then
+                print(format_num(u.cost), 80, y, 4)
+            else
+                print("[OK]", 80, y, 5)
+            end
+        end
+        y = y + 12
+    end
+
+    -- Anti-Santa Weapons (only show if unlocked)
+    if game.cheer >= 100000000 or #upgrades.weapons > 0 then
+        y = y + 4
+        if y >= UI_TOP - 8 and y < UI_BOTTOM then
+            print("ANTI-SANTA WEAPONS", 4, y, 2)
         end
         y = y + 10
+        for i, u in ipairs(upgrades.weapons) do
+            if y >= UI_TOP - 10 and y < UI_BOTTOM then
+                local col = u.owned and 5 or 12
+                print(u.name, 6, y, col)
+                if not u.owned then
+                    print(format_num(u.cost), 120, y, 4)
+                else
+                    print("[OK]", 120, y, 5)
+                end
+            end
+            y = y + 12
+        end
+    end
+
+    -- Scroll indicator
+    if max_scroll > 0 then
+        local bar_h = math.max(10, UI_HEIGHT * UI_HEIGHT / content_height)
+        local bar_y = UI_TOP + (scroll / max_scroll) * (UI_HEIGHT - bar_h)
+        rect(236, UI_TOP, 3, UI_HEIGHT, 1)
+        rect(236, bar_y, 3, bar_h, 12)
     end
 end
 
@@ -967,14 +1062,12 @@ end
 
 -- Sprite data as hex strings (each char = 1 pixel, 0-f = palette color)
 local SPRITE_DATA = {
-    -- 001: Production Elf (big smiling cheery head, green hat)
-    -- Dark blue face (9) with dark eyes (1), rosy cheeks (3), orange smile
-    [1] = "0006600000666600099999909191191939999993099339900066660000600600",
-    -- 002: Delivery Elf (big smiling cheery head, light blue hat)
-    -- Dark blue face (9) with dark eyes (1), rosy cheeks (3), orange smile
-    [2] = "000aa00000aaaa00099999909191191939999993099339900aaaa0000a00a00",
-    -- 003: Santa (red suit, white beard, black boots)
-    [3] = "00ccc000002c2000002cc20000cccc0002cccc20022222200020020000f00f00",
+    -- 001: Production Elf (green hat, pointy ears, light skin, smiling)
+    [1] = "000660000066660006cccc600c0cc0c03cccccc30cc33cc00066660000600600",
+    -- 002: Delivery Elf (blue hat, pointy ears, light skin, smiling)
+    [2] = "000aa00000aaaa000acccca00c0cc0c03cccccc30cc33cc000aaaa0000a00a00",
+    -- 003: Santa (red hat with pompom, white face/beard, red suit, black boots)
+    [3] = "002c2000002222000cccccc00c0cc0c000cccc000cccccc00022220000f00f00",
     -- 004: Teddy Bear (orange fur, button eyes)
     [4] = "0330033003333330333003333333333303333330333333330330033003300330",
     -- 005: Robot (gray body, blue eyes)
@@ -983,8 +1076,8 @@ local SPRITE_DATA = {
     [6] = "000000000066666006f66f6006666660066666600060060006666660000ff000",
     -- 007: Doll (orange hair, red dress)
     [7] = "00033000003cc30003cccc300c3cc3c003cccc3000333300003003000f300f30",
-    -- 008: Gift Box (yellow bow, red wrap)
-    [8] = "0004400000444400044224402222422222242222222422220222222000000000",
+    -- 008: Gift Box (green box=6, red ribbon=2, transparent bg=0)
+    [8] = "0020020000222200066226600662266006622660066226600666666000000000",
     -- 009: Bicycle
     [9] = "0000f0000000ff00000ffff00ff0f0ff0ffffff000ffff0000f00f00f000000f",
     -- 010: Van (gray body)
