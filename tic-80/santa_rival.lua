@@ -1386,9 +1386,24 @@ function draw_splash()
     rectb(60, 10, 120, 35, 4)  -- Yellow border
     rectb(61, 11, 118, 33, 4)  -- Double border
 
-    -- Company name
-    print("SANTA'S RIVAL", 82, 16, 4)
-    print("INC.", 106, 26, 4)
+    -- Company name (bold outlined text)
+    -- Draw outline by printing in all directions
+    local title1 = "CANDY CANE"
+    local title2 = "LLC"
+    local t1x, t1y = 85, 16
+    local t2x, t2y = 106, 26
+    -- Outline (dark red/black)
+    for ox = -1, 1 do
+        for oy = -1, 1 do
+            if ox ~= 0 or oy ~= 0 then
+                print(title1, t1x + ox, t1y + oy, 0)
+                print(title2, t2x + ox, t2y + oy, 0)
+            end
+        end
+    end
+    -- Main text (yellow/gold)
+    print(title1, t1x, t1y, 4)
+    print(title2, t2x, t2y, 4)
 
     -- Decorative stars on sign
     print("*", 68, 18, 4)
