@@ -4,682 +4,812 @@ __lua__
 -- space murder mystery
 -- a top-down rpg detective game
 
+-- constants
+txt_box_x=4
+txt_box_y=84
+txt_box_w=120
+txt_box_h=40
+txt_margin=6
+txt_max_chars=27
+txt_line_h=7
+
 -- game states
-state = "title"
--- title, playing, dialogue, clue, accusation, win, lose
+state="title"
 
 -- player
-player = {
-  x = 64, y = 64,
-  room = 1,
-  speed = 1.5,
-  dir = 2, -- 0=up,1=right,2=down,3=left
-  anim = 0
+player={
+ x=64,y=64,
+ room=1,
+ spd=1.2,
+ dir=2,
+ frame=0,
+ walk_t=0
 }
 
--- rooms: 1=bridge, 2=medbay, 3=engine, 4=cargo, 5=quarters
-rooms = {
-  {name="bridge", col=12},
-  {name="medbay", col=11},
-  {name="engine room", col=9},
-  {name="cargo bay", col=4},
-  {name="crew quarters", col=13}
+-- room data
+rooms={
+ {name="bridge",flr=1,wall=12},
+ {name="medbay",flr=3,wall=11},
+ {name="engine",flr=4,wall=9},
+ {name="cargo",flr=5,wall=4},
+ {name="quarters",flr=1,wall=13}
 }
 
--- doors between rooms (x,y,to_room,spawn_x,spawn_y)
-doors = {
-  -- bridge doors
-  {room=1, x=120, y=56, w=8, h=16, to=2, sx=16, sy=64},
-  {room=1, x=0, y=56, w=8, h=16, to=3, sx=112, sy=64},
-  -- medbay doors
-  {room=2, x=0, y=56, w=8, h=16, to=1, sx=112, sy=64},
-  {room=2, x=120, y=56, w=8, h=16, to=4, sx=16, sy=64},
-  -- engine doors
-  {room=3, x=120, y=56, w=8, h=16, to=1, sx=16, sy=64},
-  {room=3, x=64, y=120, w=16, h=8, to=5, sx=64, sy=16},
-  -- cargo doors
-  {room=4, x=0, y=56, w=8, h=16, to=2, sx=112, sy=64},
-  {room=4, x=64, y=120, w=16, h=8, to=5, sx=64, sy=16},
-  -- quarters doors
-  {room=5, x=32, y=0, w=16, h=8, to=3, sx=64, sy=104},
-  {room=5, x=80, y=0, w=16, h=8, to=4, sx=64, sy=104}
+-- doors
+doors={
+ {r=1,x=120,y=56,w=8,h=16,to=2,sx=16,sy=64},
+ {r=1,x=0,y=56,w=8,h=16,to=3,sx=108,sy=64},
+ {r=2,x=0,y=56,w=8,h=16,to=1,sx=108,sy=64},
+ {r=2,x=120,y=56,w=8,h=16,to=4,sx=16,sy=64},
+ {r=3,x=120,y=56,w=8,h=16,to=1,sx=16,sy=64},
+ {r=3,x=56,y=120,w=16,h=8,to=5,sx=64,sy=24},
+ {r=4,x=0,y=56,w=8,h=16,to=2,sx=108,sy=64},
+ {r=4,x=56,y=120,w=16,h=8,to=5,sx=64,sy=24},
+ {r=5,x=24,y=0,w=16,h=8,to=3,sx=64,sy=100},
+ {r=5,x=88,y=0,w=16,h=8,to=4,sx=64,sy=100}
 }
 
--- suspects (npcs)
-suspects = {
-  {
-    name="dr. nova",
-    role="ship doctor",
-    room=2, x=80, y=40,
-    col=11,
-    motive="captain threatened to report her for stealing medical supplies",
-    alibi="was in medbay treating a patient",
-    guilty=false,
-    questioned=false,
-    lines={
-      "the captain was alive when i last saw him.",
-      "i heard a loud noise from the bridge.",
-      "check the cargo bay... i saw something odd there."
-    }
-  },
-  {
-    name="engineer vex",
-    role="chief engineer",
-    room=3, x=40, y=80,
-    col=9,
-    motive="captain was going to demote him for the engine failures",
-    alibi="was fixing a plasma conduit in engineering",
-    guilty=true, -- the killer!
-    questioned=false,
-    lines={
-      "i was busy with repairs all shift.",
-      "the captain was harsh... but i didn't...",
-      "my wrench is missing. someone took it!"
-    }
-  },
-  {
-    name="lt. orion",
-    role="security chief",
-    room=4, x=90, y=70,
-    col=8,
-    motive="captain discovered his smuggling operation",
-    alibi="was doing cargo inspection",
-    guilty=false,
-    questioned=false,
-    lines={
-      "i found the body on my patrol.",
-      "no forced entry. must be crew.",
-      "everyone had reasons to hate the captain."
-    }
-  },
-  {
-    name="nav. stella",
-    role="navigator",
-    room=5, x=64, y=80,
-    col=14,
-    motive="captain rejected her transfer request",
-    alibi="was in quarters reviewing star charts",
-    guilty=false,
-    questioned=false,
-    lines={
-      "the captain and i disagreed, yes.",
-      "but i would never resort to violence!",
-      "check engineering... i heard clanging."
-    }
+-- suspects
+suspects={
+ {
+  name="dr.nova",
+  role="doctor",
+  room=2,x=80,y=48,
+  spr=32,col=11,
+  motive="theft of meds",
+  alibi="treating patient",
+  guilty=false,
+  asked=false,
+  lines={
+   "captain was alive earlier.",
+   "heard noise from bridge.",
+   "check cargo bay."
   }
-}
-
--- clues to find
-clues = {
-  {
-    name="bloody wrench",
-    room=1, x=96, y=80,
-    found=false,
-    desc="a wrench with blood stains. the murder weapon!"
-  },
-  {
-    name="oil stains",
-    room=1, x=48, y=90,
-    found=false,
-    desc="engine oil on the floor. leads to engineering."
-  },
-  {
-    name="torn badge",
-    room=3, x=100, y=50,
-    found=false,
-    desc="a piece of engineer vex's id badge."
-  },
-  {
-    name="schedule log",
-    room=2, x=30, y=60,
-    found=false,
-    desc="shows dr. nova was busy with a patient."
-  },
-  {
-    name="cargo manifest",
-    room=4, x=50, y=40,
-    found=false,
-    desc="proves lt. orion was in cargo bay."
+ },
+ {
+  name="eng.vex",
+  role="engineer",
+  room=3,x=40,y=80,
+  spr=34,col=9,
+  motive="demotion threat",
+  alibi="fixing conduit",
+  guilty=true,
+  asked=false,
+  lines={
+   "i was busy all shift.",
+   "captain was harsh but...",
+   "my wrench is missing!"
   }
+ },
+ {
+  name="lt.orion",
+  role="security",
+  room=4,x=90,y=70,
+  spr=36,col=8,
+  motive="smuggling found",
+  alibi="cargo inspection",
+  guilty=false,
+  asked=false,
+  lines={
+   "i found the body.",
+   "no forced entry.",
+   "crew all had motive."
+  }
+ },
+ {
+  name="nav.stella",
+  role="navigator",
+  room=5,x=64,y=80,
+  spr=38,col=14,
+  motive="transfer denied",
+  alibi="reviewing charts",
+  guilty=false,
+  asked=false,
+  lines={
+   "we disagreed, yes.",
+   "but never violence!",
+   "heard clanging in eng."
+  }
+ }
 }
 
--- victim (captain's body)
-victim = {
-  room=1, x=64, y=64,
-  examined=false
+-- clues
+clues={
+ {
+  name="bloody wrench",
+  room=1,x=96,y=80,
+  spr=48,found=false,
+  desc="murder weapon with blood"
+ },
+ {
+  name="oil trail",
+  room=1,x=48,y=90,
+  spr=49,found=false,
+  desc="engine oil leads to eng"
+ },
+ {
+  name="torn badge",
+  room=3,x=100,y=50,
+  spr=50,found=false,
+  desc="piece of vex's id badge"
+ },
+ {
+  name="med log",
+  room=2,x=30,y=70,
+  spr=51,found=false,
+  desc="nova was busy w/ patient"
+ },
+ {
+  name="cargo log",
+  room=4,x=50,y=45,
+  spr=52,found=false,
+  desc="orion in cargo all day"
+ }
 }
 
--- dialogue system
-dialogue = {
-  active=false,
-  npc=nil,
-  line=1,
-  text="",
-  choices={}
+-- victim
+victim={room=1,x=64,y=64,seen=false}
+
+-- dialogue state
+dlg={
+ active=false,
+ npc=nil,
+ step=1,
+ txt="",
+ lines={}
 }
 
--- found clues list
-found_clues = {}
-
--- game timer
-game_time = 0
+-- found clues
+found={}
+gtime=0
+cursor=1
 
 function _init()
-  state = "title"
-  player.x = 64
-  player.y = 90
-  player.room = 1
+ state="title"
+ player.x=64
+ player.y=90
+ player.room=1
+ gtime=0
 end
 
 function _update60()
-  if state == "title" then
-    if btnp(4) or btnp(5) then
-      state = "playing"
-      -- show intro
-      show_message("captain reed is dead!\ninvestigate the crime scene.")
-    end
-  elseif state == "playing" then
-    update_player()
-    check_doors()
-    check_interactions()
-    game_time += 1
-  elseif state == "dialogue" then
-    update_dialogue()
-  elseif state == "message" then
-    if btnp(4) or btnp(5) then
-      state = "playing"
-    end
-  elseif state == "accusation" then
-    update_accusation()
-  elseif state == "win" or state == "lose" then
-    if btnp(4) or btnp(5) then
-      _init()
-    end
+ gtime+=1
+ if state=="title" then
+  if btnp(4) or btnp(5) then
+   state="playing"
+   set_msg("captain reed is dead! investigate the crime scene.")
   end
+ elseif state=="playing" then
+  move_player()
+  check_doors()
+  check_interact()
+ elseif state=="dialogue" then
+  upd_dialogue()
+ elseif state=="message" then
+  if btnp(4) or btnp(5) then
+   state="playing"
+  end
+ elseif state=="accuse" then
+  upd_accuse()
+ elseif state=="win" or state=="lose" then
+  if btnp(4) or btnp(5) then
+   _init()
+  end
+ end
 end
 
-function update_player()
-  local nx, ny = player.x, player.y
+function move_player()
+ local nx,ny=player.x,player.y
+ local moving=false
 
-  if btn(0) then
-    nx -= player.speed
-    player.dir = 3
-  end
-  if btn(1) then
-    nx += player.speed
-    player.dir = 1
-  end
-  if btn(2) then
-    ny -= player.speed
-    player.dir = 0
-  end
-  if btn(3) then
-    ny += player.speed
-    player.dir = 2
-  end
+ if btn(0) then
+  nx-=player.spd
+  player.dir=3
+  moving=true
+ end
+ if btn(1) then
+  nx+=player.spd
+  player.dir=1
+  moving=true
+ end
+ if btn(2) then
+  ny-=player.spd
+  player.dir=0
+  moving=true
+ end
+ if btn(3) then
+  ny+=player.spd
+  player.dir=2
+  moving=true
+ end
 
-  -- boundary check
-  nx = mid(8, nx, 120)
-  ny = mid(16, ny, 112)
+ nx=mid(12,nx,116)
+ ny=mid(20,ny,108)
+ player.x=nx
+ player.y=ny
 
-  -- simple collision with furniture would go here
-  player.x = nx
-  player.y = ny
-
-  -- animation
-  if btn(0) or btn(1) or btn(2) or btn(3) then
-    player.anim = (player.anim + 0.2) % 4
-  end
+ if moving then
+  player.walk_t+=0.15
+  player.frame=flr(player.walk_t)%4
+ else
+  player.frame=0
+ end
 end
 
 function check_doors()
-  for d in all(doors) do
-    if d.room == player.room then
-      if player.x > d.x and player.x < d.x + d.w and
-         player.y > d.y and player.y < d.y + d.h then
-        player.room = d.to
-        player.x = d.sx
-        player.y = d.sy
-        sfx(0)
-        return
-      end
-    end
+ for d in all(doors) do
+  if d.r==player.room then
+   if player.x>d.x-4 and player.x<d.x+d.w+4 and
+      player.y>d.y-4 and player.y<d.y+d.h+4 then
+    player.room=d.to
+    player.x=d.sx
+    player.y=d.sy
+    sfx(0)
+    return
+   end
   end
+ end
 end
 
-function check_interactions()
-  if not btnp(4) then return end
+function check_interact()
+ if not btnp(4) then return end
 
-  -- check npcs
-  for s in all(suspects) do
-    if s.room == player.room then
-      local dist = abs(player.x - s.x) + abs(player.y - s.y)
-      if dist < 20 then
-        start_dialogue(s)
-        return
-      end
-    end
+ -- npcs
+ for s in all(suspects) do
+  if s.room==player.room then
+   if dist(player.x,player.y,s.x,s.y)<20 then
+    start_dlg(s)
+    return
+   end
   end
+ end
 
-  -- check clues
-  for c in all(clues) do
-    if not c.found and c.room == player.room then
-      local dist = abs(player.x - c.x) + abs(player.y - c.y)
-      if dist < 16 then
-        c.found = true
-        add(found_clues, c)
-        show_message("found: " .. c.name .. "\n" .. c.desc)
-        sfx(1)
-        return
-      end
-    end
+ -- clues
+ for c in all(clues) do
+  if not c.found and c.room==player.room then
+   if dist(player.x,player.y,c.x,c.y)<16 then
+    c.found=true
+    add(found,c)
+    set_msg("found: "..c.name.."! "..c.desc)
+    sfx(1)
+    return
+   end
   end
+ end
 
-  -- check victim
-  if player.room == 1 and not victim.examined then
-    local dist = abs(player.x - victim.x) + abs(player.y - victim.y)
-    if dist < 20 then
-      victim.examined = true
-      show_message("captain reed's body.\nblunt force trauma to head.\ntime of death: 2 hours ago.")
-      return
-    end
+ -- victim
+ if player.room==1 and not victim.seen then
+  if dist(player.x,player.y,victim.x,victim.y)<20 then
+   victim.seen=true
+   set_msg("captain reed. blunt trauma to head. dead 2 hours.")
+   return
   end
+ end
 
-  -- accusation mode (press x near bridge console)
-  if player.room == 1 and player.x > 50 and player.x < 78 and player.y < 30 then
-    if #found_clues >= 3 then
-      start_accusation()
+ -- console for accusation
+ if player.room==1 and player.y<30 and
+    player.x>40 and player.x<88 then
+  if #found>=3 then
+   state="accuse"
+   cursor=1
+  else
+   set_msg("need more clues first! find at least 3.")
+  end
+ end
+end
+
+function dist(x1,y1,x2,y2)
+ return abs(x1-x2)+abs(y1-y2)
+end
+
+function start_dlg(npc)
+ state="dialogue"
+ dlg.npc=npc
+ dlg.step=1
+ dlg.txt=npc.lines[1]
+ dlg.lines=wrap_text(dlg.txt,txt_max_chars)
+ npc.asked=true
+end
+
+function upd_dialogue()
+ if btnp(4) or btnp(5) then
+  dlg.step+=1
+  local npc=dlg.npc
+  local total=#npc.lines
+
+  if dlg.step<=total then
+   dlg.txt=npc.lines[dlg.step]
+  elseif dlg.step==total+1 then
+   dlg.txt="motive: "..npc.motive
+  elseif dlg.step==total+2 then
+   dlg.txt="alibi: "..npc.alibi
+  else
+   state="playing"
+   dlg.npc=nil
+   return
+  end
+  dlg.lines=wrap_text(dlg.txt,txt_max_chars)
+ end
+end
+
+function set_msg(txt)
+ state="message"
+ dlg.txt=txt
+ dlg.lines=wrap_text(txt,txt_max_chars)
+ dlg.npc=nil
+end
+
+-- text wrapping function
+function wrap_text(txt,maxw)
+ local lines={}
+ local line=""
+ local word=""
+
+ for i=1,#txt do
+  local c=sub(txt,i,i)
+  if c==" " or c=="\n" then
+   if #line+#word+1>maxw then
+    if #line>0 then
+     add(lines,line)
+    end
+    line=word
+   else
+    if #line>0 then
+     line=line.." "..word
     else
-      show_message("need more evidence before\nmaking an accusation.\nfind more clues!")
+     line=word
     end
+   end
+   word=""
+   if c=="\n" and #line>0 then
+    add(lines,line)
+    line=""
+   end
+  else
+   word=word..c
   end
-end
+ end
 
-function start_dialogue(npc)
-  state = "dialogue"
-  dialogue.npc = npc
-  dialogue.line = 1
-  dialogue.text = npc.lines[1]
-  npc.questioned = true
-end
-
-function update_dialogue()
-  if btnp(4) or btnp(5) then
-    dialogue.line += 1
-    if dialogue.line > #dialogue.npc.lines then
-      -- show motive and alibi
-      if dialogue.line == #dialogue.npc.lines + 1 then
-        dialogue.text = "motive: " .. dialogue.npc.motive
-      elseif dialogue.line == #dialogue.npc.lines + 2 then
-        dialogue.text = "alibi: " .. dialogue.npc.alibi
-      else
-        state = "playing"
-        dialogue.npc = nil
-      end
-    else
-      dialogue.text = dialogue.npc.lines[dialogue.line]
-    end
+ -- last word
+ if #word>0 then
+  if #line+#word+1>maxw then
+   if #line>0 then
+    add(lines,line)
+   end
+   line=word
+  else
+   if #line>0 then
+    line=line.." "..word
+   else
+    line=word
+   end
   end
+ end
+ if #line>0 then
+  add(lines,line)
+ end
+
+ return lines
 end
 
-function show_message(txt)
-  state = "message"
-  dialogue.text = txt
-end
+function upd_accuse()
+ if btnp(2) then cursor=max(1,cursor-1) end
+ if btnp(3) then cursor=min(4,cursor+1) end
 
--- accusation system
-accuse_cursor = 1
-
-function start_accusation()
-  state = "accusation"
-  accuse_cursor = 1
-end
-
-function update_accusation()
-  if btnp(2) then accuse_cursor = max(1, accuse_cursor - 1) end
-  if btnp(3) then accuse_cursor = min(4, accuse_cursor + 1) end
-
-  if btnp(4) then
-    local accused = suspects[accuse_cursor]
-    if accused.guilty then
-      state = "win"
-    else
-      state = "lose"
-    end
+ if btnp(4) then
+  if suspects[cursor].guilty then
+   state="win"
+  else
+   state="lose"
   end
+ end
 
-  if btnp(5) then
-    state = "playing"
-  end
+ if btnp(5) then
+  state="playing"
+ end
 end
 
 function _draw()
-  cls(0)
+ cls(0)
 
-  if state == "title" then
-    draw_title()
-  elseif state == "win" then
-    draw_win()
-  elseif state == "lose" then
-    draw_lose()
-  else
-    draw_room()
-    draw_objects()
-    draw_npcs()
-    draw_player()
-    draw_ui()
+ if state=="title" then
+  draw_title()
+ elseif state=="win" then
+  draw_win()
+ elseif state=="lose" then
+  draw_lose()
+ else
+  draw_room()
+  draw_furniture()
+  draw_clues()
+  draw_victim()
+  draw_npcs()
+  draw_player()
+  draw_ui()
 
-    if state == "dialogue" or state == "message" then
-      draw_dialogue()
-    elseif state == "accusation" then
-      draw_accusation()
-    end
+  if state=="dialogue" or state=="message" then
+   draw_dlg_box()
+  elseif state=="accuse" then
+   draw_accuse()
   end
+ end
 end
 
 function draw_title()
-  -- starfield
-  for i=0,50 do
-    local sx = (i*17+game_time/2) % 128
-    local sy = (i*23) % 128
-    pset(sx, sy, 7)
-  end
-  game_time += 1
+ -- stars
+ for i=0,40 do
+  local sx=(i*17+gtime/3)%128
+  local sy=(i*23+sin(i)*8)%128
+  local c=6
+  if i%5==0 then c=7 end
+  pset(sx,sy,c)
+ end
 
-  -- title
-  local tx = 20
-  print("~~~~~~~~~~~~~~~~~", tx, 20, 1)
-  print("~~~~~~~~~~~~~~~~~", tx, 21, 5)
+ -- ship silhouette
+ spr(56,48,50,4,2)
 
-  print("space murder", tx+10, 35, 12)
-  print("mystery", tx+30, 45, 11)
+ -- title text box
+ rectfill(16,22,112,52,1)
+ rect(16,22,112,52,12)
+ rect(17,23,111,51,5)
 
-  print("~~~~~~~~~~~~~~~~~", tx, 60, 5)
-  print("~~~~~~~~~~~~~~~~~", tx, 61, 1)
+ print("space murder",32,28,12)
+ print("mystery",44,38,8)
 
-  print("a detective rpg", tx+8, 80, 6)
+ -- subtitle
+ print("a detective rpg",28,68,6)
 
-  if (game_time/30) % 2 < 1 then
-    print("press z to start", tx+4, 100, 7)
-  end
+ -- prompt
+ if (gtime/30)%2<1 then
+  print("press \151 to start",28,100,7)
+ end
+
+ -- credits
+ print("by claude code",32,118,5)
 end
 
 function draw_room()
-  local room = rooms[player.room]
+ local rm=rooms[player.room]
 
-  -- floor
-  rectfill(0, 0, 127, 127, 1)
-
-  -- grid pattern for floor
-  for x=0,127,8 do
-    line(x, 0, x, 127, 0)
+ -- floor tiles
+ for ty=0,15 do
+  for tx=0,15 do
+   spr(rm.flr,tx*8,ty*8)
   end
-  for y=0,127,8 do
-    line(0, y, 127, y, 0)
+ end
+
+ -- walls top
+ for tx=0,15 do
+  spr(16+rm.wall%4,tx*8,0)
+  spr(16+rm.wall%4,tx*8,8)
+ end
+
+ -- walls left/right
+ for ty=2,14 do
+  spr(20,0,ty*8)
+  spr(21,120,ty*8)
+ end
+
+ -- wall bottom
+ for tx=0,15 do
+  spr(22,tx*8,112)
+  spr(22,tx*8,120)
+ end
+
+ -- doors
+ for d in all(doors) do
+  if d.r==player.room then
+   -- door sprite
+   if d.h>d.w then
+    -- vertical door
+    spr(24,d.x,d.y)
+    spr(24,d.x,d.y+8)
+   else
+    -- horizontal door
+    spr(25,d.x,d.y)
+    spr(25,d.x+8,d.y)
+   end
   end
+ end
 
-  -- walls
-  rectfill(0, 0, 127, 12, room.col)
-  rectfill(0, 0, 6, 127, room.col)
-  rectfill(121, 0, 127, 127, room.col)
-  rectfill(0, 115, 127, 127, room.col)
-
-  -- room name
-  print(room.name, 48, 3, 0)
-
-  -- draw doors
-  for d in all(doors) do
-    if d.room == player.room then
-      rectfill(d.x, d.y, d.x+d.w, d.y+d.h, 10)
-    end
-  end
-
-  -- room-specific decorations
-  if player.room == 1 then
-    -- bridge: console at top
-    rectfill(40, 16, 88, 28, 5)
-    rectfill(42, 18, 86, 26, 0)
-    -- blinking lights
-    for i=0,4 do
-      pset(44+i*10, 22, 8+((game_time/10+i)%4))
-    end
-    print("console", 52, 20, 11)
-  elseif player.room == 2 then
-    -- medbay: beds
-    rectfill(20, 30, 50, 50, 6)
-    rectfill(70, 30, 100, 50, 6)
-    print("bed", 30, 38, 7)
-    print("bed", 80, 38, 7)
-  elseif player.room == 3 then
-    -- engine: machinery
-    rectfill(20, 20, 60, 60, 5)
-    for i=0,3 do
-      circ(40, 40, 8+i*4, 8+i)
-    end
-    print("reactor", 26, 65, 9)
-  elseif player.room == 4 then
-    -- cargo: crates
-    for i=0,2 do
-      for j=0,1 do
-        rectfill(20+i*35, 25+j*50, 40+i*35, 45+j*50, 4)
-        rect(20+i*35, 25+j*50, 40+i*35, 45+j*50, 5)
-      end
-    end
-  elseif player.room == 5 then
-    -- quarters: bunks
-    rectfill(20, 40, 45, 100, 13)
-    rectfill(80, 40, 105, 100, 13)
-    print("bunk", 26, 68, 7)
-    print("bunk", 86, 68, 7)
-  end
+ -- room label
+ local nm=rm.name
+ local nw=#nm*4
+ rectfill(64-nw/2-2,2,64+nw/2+1,10,0)
+ print(nm,64-nw/2,4,7)
 end
 
-function draw_objects()
-  -- draw clues
-  for c in all(clues) do
-    if not c.found and c.room == player.room then
-      -- sparkle effect
-      local sparkle = (game_time/8) % 4
-      circfill(c.x, c.y, 3, 10)
-      if sparkle < 2 then
-        pset(c.x-2, c.y-2, 7)
-        pset(c.x+2, c.y+2, 7)
-      else
-        pset(c.x+2, c.y-2, 7)
-        pset(c.x-2, c.y+2, 7)
-      end
-    end
-  end
+function draw_furniture()
+ local r=player.room
 
-  -- draw victim
-  if player.room == 1 then
-    -- body outline
-    rectfill(victim.x-8, victim.y-4, victim.x+8, victim.y+4, 8)
-    -- x eyes
-    print("x x", victim.x-6, victim.y-2, 0)
-    if not victim.examined then
-      print("?", victim.x-2, victim.y-12, 7)
-    end
+ if r==1 then
+  -- bridge console
+  spr(64,40,16,6,2)
+  -- chairs
+  spr(80,32,40)
+  spr(80,88,40)
+ elseif r==2 then
+  -- med beds
+  spr(72,20,32,2,2)
+  spr(72,72,32,2,2)
+  -- med cabinet
+  spr(82,100,24)
+ elseif r==3 then
+  -- reactor core
+  spr(96,32,32,4,4)
+  -- pipes
+  spr(84,16,24)
+  spr(84,16,80)
+  spr(84,104,24)
+ elseif r==4 then
+  -- crates
+  spr(88,24,28,2,2)
+  spr(88,64,28,2,2)
+  spr(88,24,72,2,2)
+  spr(88,64,72,2,2)
+  spr(90,100,50)
+ elseif r==5 then
+  -- bunks
+  spr(112,16,36,2,4)
+  spr(112,88,36,2,4)
+  -- table
+  spr(81,52,64,3,2)
+ end
+end
+
+function draw_clues()
+ for c in all(clues) do
+  if not c.found and c.room==player.room then
+   -- sparkle
+   local sp=flr(gtime/8)%4
+   spr(c.spr,c.x-4,c.y-4)
+   if sp<2 then
+    pset(c.x-4,c.y-4,7)
+    pset(c.x+3,c.y+3,7)
+   else
+    pset(c.x+3,c.y-4,7)
+    pset(c.x-4,c.y+3,7)
+   end
   end
+ end
+end
+
+function draw_victim()
+ if player.room~=1 then return end
+
+ -- body
+ spr(44,victim.x-8,victim.y-8,2,2)
+
+ if not victim.seen then
+  -- question mark
+  print("?",victim.x-2,victim.y-16,7)
+ end
 end
 
 function draw_npcs()
-  for s in all(suspects) do
-    if s.room == player.room then
-      -- body
-      circfill(s.x, s.y, 6, s.col)
-      -- face
-      circfill(s.x, s.y-2, 4, 15)
-      -- eyes
-      pset(s.x-1, s.y-3, 0)
-      pset(s.x+1, s.y-3, 0)
-      -- name tag
-      local tw = #s.name * 2
-      print(s.name, s.x - tw, s.y - 14, 7)
+ for s in all(suspects) do
+  if s.room==player.room then
+   -- npc sprite (2x2)
+   local fr=0
+   if (gtime/30)%2<1 then fr=2 end
+   spr(s.spr+fr,s.x-8,s.y-8,2,2)
 
-      -- question mark if not questioned
-      if not s.questioned then
-        print("?", s.x + 8, s.y - 8, 11)
-      end
-    end
+   -- name above
+   local nw=#s.name*4
+   print(s.name,s.x-nw/2,s.y-16,7)
+
+   -- ? if not talked
+   if not s.asked then
+    print("?",s.x+10,s.y-12,11)
+   end
   end
+ end
 end
 
 function draw_player()
-  local px, py = player.x, player.y
+ local px,py=player.x,player.y
 
-  -- body
-  circfill(px, py, 5, 12)
+ -- sprite based on direction
+ local sp=0
+ if player.dir==0 then sp=4 --up
+ elseif player.dir==1 then sp=2 --right
+ elseif player.dir==2 then sp=0 --down
+ elseif player.dir==3 then sp=6 --left
+ end
 
-  -- face direction indicator
-  local fx, fy = 0, 0
-  if player.dir == 0 then fy = -3
-  elseif player.dir == 1 then fx = 3
-  elseif player.dir == 2 then fy = 3
-  elseif player.dir == 3 then fx = -3
-  end
+ -- walk animation
+ if player.frame%2==1 then
+  sp+=8
+ end
 
-  -- head
-  circfill(px, py-2, 4, 15)
-
-  -- eyes
-  pset(px-1+fx/2, py-3+fy/2, 0)
-  pset(px+1+fx/2, py-3+fy/2, 0)
-
-  -- detective hat
-  rectfill(px-4, py-8, px+4, py-6, 5)
-  rectfill(px-2, py-10, px+2, py-8, 5)
-
-  -- walking animation
-  if btn(0) or btn(1) or btn(2) or btn(3) then
-    local legoff = sin(player.anim) * 2
-    pset(px-2, py+5+legoff, 0)
-    pset(px+2, py+5-legoff, 0)
-  end
+ spr(sp,px-8,py-8,2,2)
 end
 
 function draw_ui()
-  -- clue counter
-  rectfill(0, 120, 50, 127, 0)
-  print("clues:"..#found_clues.."/5", 2, 121, 7)
+ -- bottom bar
+ rectfill(0,120,127,127,0)
 
-  -- help text
-  print("z:interact", 70, 121, 6)
+ -- clue count
+ spr(48,2,120)
+ print(#found.."/5",12,121,7)
+
+ -- room indicator
+ print(rooms[player.room].name,40,121,6)
+
+ -- help
+ print("\151:talk",96,121,5)
 end
 
-function draw_dialogue()
-  -- dialogue box
-  rectfill(4, 80, 124, 124, 0)
-  rect(4, 80, 124, 124, 7)
-  rect(5, 81, 123, 123, 6)
+function draw_dlg_box()
+ -- box background
+ rectfill(txt_box_x,txt_box_y,
+          txt_box_x+txt_box_w,
+          txt_box_y+txt_box_h,0)
+ -- border
+ rect(txt_box_x,txt_box_y,
+      txt_box_x+txt_box_w,
+      txt_box_y+txt_box_h,7)
+ rect(txt_box_x+1,txt_box_y+1,
+      txt_box_x+txt_box_w-1,
+      txt_box_y+txt_box_h-1,5)
 
-  if dialogue.npc then
-    -- speaker name
-    print(dialogue.npc.name, 10, 84, dialogue.npc.col)
-    line(8, 92, 120, 92, 6)
-  end
+ local ty=txt_box_y+txt_margin
 
-  -- text with word wrap
-  local txt = dialogue.text
-  local y = 96
-  local line = ""
-  for word in all(split(txt, " ")) do
-    if #line + #word > 26 then
-      print(line, 10, y, 7)
-      y += 8
-      line = word .. " "
-    else
-      line = line .. word .. " "
-    end
-  end
-  print(line, 10, y, 7)
+ -- speaker name
+ if dlg.npc then
+  print(dlg.npc.name,txt_box_x+txt_margin,ty,dlg.npc.col)
+  ty+=txt_line_h+2
+  line(txt_box_x+4,ty-1,txt_box_x+txt_box_w-4,ty-1,5)
+  ty+=2
+ end
 
-  -- continue prompt
-  if (game_time/20) % 2 < 1 then
-    print("z", 116, 116, 11)
-  end
+ -- text lines (pre-wrapped)
+ local max_lines=3
+ if dlg.npc then max_lines=2 end
+
+ for i=1,min(#dlg.lines,max_lines) do
+  print(dlg.lines[i],txt_box_x+txt_margin,ty,7)
+  ty+=txt_line_h
+ end
+
+ -- continue indicator
+ if (gtime/15)%2<1 then
+  print("\142",txt_box_x+txt_box_w-10,
+        txt_box_y+txt_box_h-10,11)
+ end
 end
 
-function draw_accusation()
-  -- accusation menu
-  rectfill(10, 20, 118, 108, 0)
-  rect(10, 20, 118, 108, 8)
-  rect(11, 21, 117, 107, 5)
+function draw_accuse()
+ -- box
+ rectfill(12,18,116,110,0)
+ rect(12,18,116,110,8)
+ rect(13,19,115,109,5)
 
-  print("make accusation", 28, 26, 8)
-  line(20, 35, 108, 35, 5)
+ -- title
+ print("make accusation",30,24,8)
+ line(20,33,108,33,5)
 
-  print("who killed captain reed?", 16, 40, 7)
+ print("who killed reed?",28,38,7)
 
-  for i=1,4 do
-    local s = suspects[i]
-    local col = 6
-    if i == accuse_cursor then
-      col = 11
-      print(">", 18, 48+i*12, 11)
-    end
-    print(s.name, 28, 48+i*12, col)
-    print("("..s.role..")", 70, 48+i*12, 5)
+ -- suspects list
+ for i=1,4 do
+  local s=suspects[i]
+  local y=46+i*14
+  local c=6
+
+  if i==cursor then
+   c=11
+   print("\145",18,y,11)
   end
 
-  print("z:accuse  x:cancel", 24, 100, 6)
+  print(s.name,28,y,c)
+  print(s.role,70,y,5)
+ end
+
+ -- help
+ print("\151:accuse \142:cancel",22,100,6)
 end
 
 function draw_win()
-  cls(0)
-  -- stars
-  for i=0,30 do
-    pset((i*17)%128, (i*23)%128, 7)
-  end
+ -- stars
+ for i=0,30 do
+  pset((i*17)%128,(i*23)%128,7)
+ end
 
-  print("case closed!", 36, 30, 11)
+ -- box
+ rectfill(16,28,112,72,1)
+ rect(16,28,112,72,11)
 
-  rectfill(20, 45, 108, 90, 5)
-  rect(20, 45, 108, 90, 6)
+ print("case closed!",38,34,11)
+ print("engineer vex",36,46,9)
+ print("is guilty!",42,56,8)
 
-  print("engineer vex", 38, 52, 9)
-  print("is guilty!", 42, 62, 8)
+ print("great work,",40,82,10)
+ print("detective!",42,92,10)
 
-  print("the evidence proved", 22, 75, 7)
-  print("beyond doubt.", 36, 83, 7)
-
-  print("great detective work!", 18, 100, 10)
-
-  if (game_time/30)%2<1 then
-    print("press z to restart", 20, 115, 6)
-  end
-  game_time += 1
+ if (gtime/30)%2<1 then
+  print("press \151 to retry",24,112,6)
+ end
 end
 
 function draw_lose()
-  cls(0)
+ -- stars
+ for i=0,30 do
+  pset((i*17)%128,(i*23)%128,5)
+ end
 
-  print("wrong accusation!", 28, 30, 8)
+ -- box
+ rectfill(16,28,112,72,1)
+ rect(16,28,112,72,8)
 
-  rectfill(20, 45, 108, 85, 1)
-  rect(20, 45, 108, 85, 2)
+ print("wrong!",52,34,8)
+ print("the killer was",32,46,7)
+ print("engineer vex",36,56,9)
 
-  print("the real killer", 30, 52, 7)
-  print("was engineer vex!", 26, 62, 9)
+ print("he escaped...",36,82,8)
 
-  print("he escapes...", 36, 75, 8)
-
-  print("review the evidence", 22, 95, 6)
-  print("more carefully!", 32, 105, 6)
-
-  if (game_time/30)%2<1 then
-    print("press z to retry", 24, 118, 5)
-  end
-  game_time += 1
+ if (gtime/30)%2<1 then
+  print("press \151 to retry",24,112,6)
+ end
 end
 
 __gfx__
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000005550000055500000555000005550000011100000111000001110000011100000000000000000000000000000000000000000000000000000000000
+000cc0000055c5000055c500005c5500005c55000011c1000011c100001c1100001c110000cccc0000cccc0000cccc0000cccc0000000000000000000000000000
+00cccc0000ccc50000ccc5000005ccc0005ccc000c1111000c11110000111c0001111c0000c77c0000c77c0000c77c0000c77c0000000000000000000000000000
+00c77c00005cc500005cc500005cc500005cc50001cc1000001cc100001cc1000001cc10007cc7000077cc000077cc00007cc70000000000000000000000000000
+007cc700007007000070070000700700007007000170170001701700017017000170170000700700007007000070070000700700000c0c00000c0c0000000000c0
+0c0770c0007007000070070000700700007007000170170001701700017017000170170000c00c0000c00c0000c00c0000c00c00000c0c00000c0c000000000c00
+0c0000c0000770000077000000007700000077000017710000177100001771000017710000077000007700000000770000007700000ccc00000ccc00000000c000
+000000000007700000770000000077000000770000177100001771000017710000177100000770000077000000007700000077000000c000000c0c0000000c0000
+1111111151111115555555556666666655555555666666660000000000000000000000000000000000000000000000000000000000000000111111111ddddddd
+1515151551111115555995556669966655995955669669660000000000000000000000000000000000000000000000000000000000000000111111111ddddddd
+11111111515115155559955566699665559559556696696600000000000000000000000000000000000000000000000000000000000000001111111111111111
+1515151551511515555555556666666655555555666666660000000000000000000000000000000000000000000000000000000000000000111111111ddddddd
+1111111151511515555555556666666655555555666666660000000000000000000000000000000000000000000000000000000000000000111111111ddddddd
+1515151551511515555995556669966655599555666996660000000000000000000000000000000000000000000000000000000000000000111111111ddddddd
+1111111151111115555995556669966655955955669699660000000000000000000000000000000000000000000000000000000000000000111111111ddddddd
+1515151551515155555555556666666655555555666666660000000000000000000000000000000000000000000000000000000000000000111111111ddddddd
+00bbb000000b0b00009990000099900000888000008880000000e0000000e0000088888808888880099aa99009aaaa9000000000000000005555555500000000
+00b1bb000bbbbb00009b990009999000008b880008888000000eee00000eee000878787808888880099aa99009aaaa9000000000000000005555555500000000
+0bb11b000b1b1b0000999900009b990000888800008b88000e0e0e0000e0e0e008888880888888809aa99aa09a99a9a000000000000000005599995500000000
+0b111b000bbbbb00009999000099990000888800008888000eeeee0000eeeee00fffffff0fffffff0aa99aa00a99a9a000000000000000005599995500000000
+0b1b1b0000b0b000009999000099990000888800008888000e0e0e0000e0e0e00f1f1f100f1f1f1009aa99aa09a99a9a000000000000000005599995500000000
+00bbb000000b0b00009999000099990000888800008888000eeeee0000eeeee00ffffff00ffffff0099aa99009aaaa9a000000000000000005599995500000000
+0b000b000b000b00090009000900090008000800080008000e000e0000e000e00f0000f00f0000f0099aa99009aaaa9a000000000000000005555555500000000
+0b000b000b000b000900090009000900080008000800080000e00e00000e00e000f00f0000f00f00090009000900090a000000000000000005555555500000000
+08888000099990008888888888880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+08f8f000097970008787878788880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+088880000999900088888888888f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0f88f0000f99f000ffffffff88880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0088000000990000f1f1f1f188880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0088000000990000ffffffff88880000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0088000000990000f0000f00000f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0088000000990000f00f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000044440000000000000000000000000055555555666666664444444455050505888888880000000000000000000000000000000000000000
+00007770000000000045540000000000000000000000000055555555666666664545454450505050888888880000000000000000000000000000000000000000
+00078870000000000045540000000000000000000000000055555555666666664444444455050505888888880000000000000000000000000000000000000000
+00788887000000000045540000000000000000000000000055555555666666664545454450505050888888880000000000000000000000000000000000000000
+0c788887000000000045540000000000000000000000000055555555666666664444444455050505888888880000000000000000000000000000000000000000
+00788887000000000045540000000000000000000000000055555555666666664545454450505050888888880000000000000000000000000000000000000000
+00078870000000000045540000000000000000000000000055555555666666664444444455050505888888880000000000000000000000000000000000000000
+00007770000000000044440000000000000000000000000055555555666666664545454450505050888888880000000000000000000000000000000000000000
+0555555555555555555555555555555055555550000000000000000000000000666666666666666600000000000000001111111100000000dddddddd11111111
+05aaaa5555555555555555555aaaa5055aaaa550000000000000000000000000666966696669666600000000000000001111111100000000dddddddd11111111
+05a66a555555555555555555556aa5055a66a550000000000000000000000000669669666696696600000000000000001111111100000000dd1ddddd111d1111
+05a66a555555555555555555556aa5055a66a550000000000000000000000000666666666666666600000000000000001111111100000000dddddddd11111111
+05aaaa555555555555555555556665055666a550000000000000000000000000666666666666666600000000000000001111111100000000dddddddd11111111
+0555555555555555555555555555550555555550000000000000000000000000669966696669966600000000000000001111111100000000dddddddd11111111
+05777775555555555555555557777505577775500000000000000000000000006699666966699666000000000000000011d1111100000000dddddddd1d111111
+05555555555555555555555555555505555555500000000000000000000000006666666666666666000000000000000011111111000000001ddddddd11111111
+0666666666666666666666666666660666666666666666600000000000000000000000000000000000000000000000000000000000000000000000001d1ddddd
+06aaaa66666666666666666666aa606666666666aaaa6660000000000000000000000000000000000000000000000000000000000000000000000000dddd1ddd
+06a77a6666666666666666666677606666666666a77a6660000000000000000000000000000000000000000000000000000000000000000000000000d1dddddd
+06a77a6666666666666666666677606666666666a77a6660000000000000000000000000000000000000000000000000000000000000000000000000dddddddd
+06aaaa66666666666666666666666066666666666666a660000000000000000000000000000000000000000000000000000000000000000000000000dddddddd
+0666666666666666666666666666606666666666666666600000000000000000000000000000000000000000000000000000000000000000000000001ddddddd
+0677777666666666666666666777706666666666777776600000000000000000000000000000000000000000000000000000000000000000000000001ddddddd
+0666666666666666666666666666606666666666666666600000000000000000000000000000000000000000000000000000000000000000000000001dd1dddd
 __sfx__
-000100001505015050150401503015020150101500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000200002465024650216501d6501a650176501465011650006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600
+000100001505015050150401503015020150101500015000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000200002465024650216501d6501a6501765014650116500060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006
