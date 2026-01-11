@@ -8,8 +8,12 @@ __lua__
 gstate="title"
 score=0
 health=100
+shield=100
+shield_max=100
+shield_recharge=0
 wave=1
 spawn_t=60
+wave_enemies=0
 
 -- player position
 px,py,pz=0,0,0
@@ -73,6 +77,33 @@ enemy_f={
  {1,2,5,2},{1,5,3,2},
  {5,6,3,1},{5,2,6,1},
  {7,2,1,9},{8,1,3,9}
+}
+
+-- heavy enemy (slower, tougher)
+heavy_v={
+ {0,0,8},{-5,0,-5},{5,0,-5},
+ {0,3,0},{0,-3,0},{0,0,-7},
+ {-7,0,-2},{7,0,-2},{-3,2,-3},{3,2,-3}
+}
+heavy_f={
+ {1,4,2,9},{1,3,4,9},
+ {4,3,6,5},{4,6,2,5},
+ {1,2,5,2},{1,5,3,2},
+ {5,6,3,1},{5,2,6,1},
+ {7,2,1,8},{8,1,3,8},
+ {9,4,1,11},{10,1,4,11}
+}
+
+-- fast enemy (agile, weak)
+fast_v={
+ {0,0,5},{-3,0,-3},{3,0,-3},
+ {0,1,-1},{0,-1,-1},{0,0,-4}
+}
+fast_f={
+ {1,4,2,11},{1,3,4,11},
+ {4,3,6,3},{4,6,2,3},
+ {1,2,5,2},{1,5,3,2},
+ {5,6,3,1},{5,2,6,1}
 }
 
 -- 3d math
@@ -237,7 +268,10 @@ function start_game()
  throttle=0.3
  score=0
  health=100
+ shield=100
+ shield_recharge=0
  wave=1
+ wave_enemies=1
  spawn_t=0
  enemies={}
  bullets={}
@@ -263,10 +297,8 @@ function start_game()
  c_fwd={0,0,1}
  c_rgt={1,0,0}
  c_up={0,1,0}
- -- spawn initial enemies
- for i=1,3 do
-  spawn_enemy()
- end
+ -- spawn wave 1: just 1 enemy
+ spawn_enemy("normal")
  -- auto-target first enemy
  if #enemies>0 then
   target=enemies[1]
@@ -411,11 +443,18 @@ function update_play()
   if dz>30 then d.z-=60 end
  end
 
- -- spawn
- spawn_t-=1
- if spawn_t<=0 and #enemies<5+wave then
-  spawn_enemy()
-  spawn_t=90-min(wave*5,50)
+ -- shield recharge (recharge after 2 sec of no damage)
+ if shield<shield_max then
+  shield_recharge+=1
+  if shield_recharge>120 then
+   shield=min(shield+0.5,shield_max)
+  end
+ end
+
+ -- wave progression
+ if #enemies==0 then
+  wave+=1
+  spawn_wave()
  end
 
  -- death
@@ -435,16 +474,77 @@ function update_ui()
  end
 end
 
-function spawn_enemy()
- add(enemies,{
+function spawn_enemy(etype)
+ etype=etype or "normal"
+ local e={
   x=rnd(100)-50+px,
   y=rnd(60)-30+py,
   z=rnd(100)+80+pz,
   rx=0,ry=0.5,rz=0,
-  hp=20,
-  fire=rnd(60)+30,
-  ai=rnd(30)
- })
+  etype=etype,
+  ai=rnd(40)+20
+ }
+ -- type-specific stats
+ if etype=="normal" then
+  e.hp=20
+  e.spd=0.4
+  e.fire=rnd(120)+90
+  e.acc=0.15
+  e.v=enemy_v
+  e.f=enemy_f
+ elseif etype=="heavy" then
+  e.hp=50
+  e.spd=0.25
+  e.fire=rnd(150)+120
+  e.acc=0.1
+  e.v=heavy_v
+  e.f=heavy_f
+ elseif etype=="fast" then
+  e.hp=12
+  e.spd=0.7
+  e.fire=rnd(100)+80
+  e.acc=0.12
+  e.v=fast_v
+  e.f=fast_f
+ end
+ add(enemies,e)
+end
+
+function spawn_wave()
+ -- wave 1: 1 normal
+ -- wave 2: 2 normal
+ -- wave 3: 2 normal + 1 fast
+ -- wave 4: 2 normal + 1 heavy
+ -- wave 5+: mix
+ local count=min(wave,4)
+ wave_enemies=count
+
+ if wave==1 then
+  spawn_enemy("normal")
+ elseif wave==2 then
+  spawn_enemy("normal")
+  spawn_enemy("normal")
+ elseif wave==3 then
+  spawn_enemy("normal")
+  spawn_enemy("normal")
+  spawn_enemy("fast")
+ elseif wave==4 then
+  spawn_enemy("normal")
+  spawn_enemy("heavy")
+  spawn_enemy("fast")
+ else
+  -- wave 5+: random mix
+  for i=1,min(wave,5) do
+   local r=rnd(10)
+   if r<5 then
+    spawn_enemy("normal")
+   elseif r<8 then
+    spawn_enemy("fast")
+   else
+    spawn_enemy("heavy")
+   end
+  end
+ end
 end
 
 function cycle_target()
@@ -481,25 +581,32 @@ function update_enemies()
     e.ry=atan2(dx,dz)
     e.rx=-atan2(dy,sqrt(dx*dx+dz*dz))*0.5
    end
-   e.ai=20+rnd(30)
+   e.ai=30+rnd(40)
   end
 
+  -- use enemy speed
+  local spd=e.spd or 0.4
   local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
-  e.x+=fx*0.5
-  e.y+=fy*0.5
-  e.z+=fz*0.5
+  e.x+=fx*spd
+  e.y+=fy*spd
+  e.z+=fz*spd
 
   e.fire-=1
   if e.fire<=0 then
    local dx=px-e.x
    local dy=py-e.y
    local dz=pz-e.z
-   if dx*dx+dy*dy+dz*dz<22500 then
-    fire_bullet(e.x,e.y,e.z,e.rx,e.ry,e.rz,false)
-    e.fire=40
+   local dist_sq=dx*dx+dy*dy+dz*dz
+   if dist_sq<40000 then -- 200 unit range
+    -- add inaccuracy based on acc stat
+    local acc=e.acc or 0.15
+    local aim_rx=e.rx+(rnd(acc*2)-acc)
+    local aim_ry=e.ry+(rnd(acc*2)-acc)
+    fire_enemy_bullet(e.x,e.y,e.z,aim_rx,aim_ry,e.rz)
+    e.fire=80+rnd(60) -- slower fire rate
     sfx(1)
    else
-    e.fire=10
+    e.fire=30
    end
   end
 
@@ -526,6 +633,16 @@ function fire_bullet(x,y,z,rx,ry,rz,plr)
   x=x+fx*5,y=y+fy*5,z=z+fz*5,
   vx=fx*spd,vy=fy*spd,vz=fz*spd,
   plr=plr,life=120
+ })
+end
+
+function fire_enemy_bullet(x,y,z,rx,ry,rz)
+ local fx,fy,fz=rot3d(0,0,1,rx,ry,rz)
+ local spd=0.8 -- slower enemy bullets
+ add(bullets,{
+  x=x+fx*5,y=y+fy*5,z=z+fz*5,
+  vx=fx*spd,vy=fy*spd,vz=fz*spd,
+  plr=false,life=180
  })
 end
 
@@ -563,8 +680,15 @@ function update_bullets()
    local dy=b.y-py
    local dz=b.z-pz
    if dx*dx+dy*dy+dz*dz<36 then
-    health-=10
-    add_parts(px,py,pz,8,8)
+    -- damage shields first, then health
+    shield_recharge=0 -- reset recharge timer
+    if shield>0 then
+     shield=max(0,shield-15)
+     add_parts(px,py,pz,4,12) -- blue shield sparks
+    else
+     health-=10
+     add_parts(px,py,pz,8,8)
+    end
     del(bullets,b)
     sfx(2)
    end
@@ -629,7 +753,9 @@ function draw_play()
  add_player_ship(faces,ship_v,ship_f)
 
  for e in all(enemies) do
-  add_ship(faces,e.x,e.y,e.z,e.rx,e.ry,e.rz,enemy_v,enemy_f)
+  local ev=e.v or enemy_v
+  local ef=e.f or enemy_f
+  add_ship(faces,e.x,e.y,e.z,e.rx,e.ry,e.rz,ev,ef)
  end
 
  sort_faces(faces)
@@ -875,11 +1001,17 @@ function draw_expls()
 end
 
 function draw_hud()
- -- health
+ -- shield bar (top)
  rectfill(4,4,34,8,0)
- rectfill(5,5,5+health*0.28,7,health>30 and 11 or 8)
+ rectfill(5,5,5+shield*0.28,7,12) -- blue
  rect(4,4,34,8,7)
- print("hull",5,10,7)
+ print("shld",5,10,12)
+
+ -- health bar (below shield)
+ rectfill(4,16,34,20,0)
+ rectfill(5,17,5+health*0.28,19,health>30 and 11 or 8)
+ rect(4,16,34,20,7)
+ print("hull",5,22,7)
 
  -- score/wave
  print("score:"..score,60,5,7)
@@ -908,14 +1040,14 @@ function draw_hud()
 
  -- target info panel
  if target then
-  rectfill(4,88,50,102,1)
-  rect(4,88,50,102,11)
-  print("tgt",6,90,11)
+  rectfill(55,110,80,124,1)
+  rect(55,110,80,124,9)
   local dx=target.x-px
   local dy=target.y-py
   local dz=target.z-pz
   local dist=sqrt(dx*dx+dy*dy+dz*dz)
-  print(flr(dist).."m",6,96,7)
+  print("rng",57,112,9)
+  print(flr(dist).."m",57,118,7)
  end
 end
 
@@ -996,11 +1128,17 @@ function draw_target_brackets()
  -- draw brackets on all enemies
  for e in all(enemies) do
   local vx,vy,vz=to_cam_space(e.x,e.y,e.z)
+  local dx=e.x-px
+  local dy=e.y-py
+  local dz=e.z-pz
+  local dist=sqrt(dx*dx+dy*dy+dz*dz)
+
   if vz>1 then
    local sx,sy=proj(vx,vy,vz)
    local sz=max(6,40/vz)
    local is_target=(e==target)
-   local col=is_target and 11 or 8
+   -- orange (9) for target, dark red (2) for others
+   local col=is_target and 9 or 2
 
    -- corner brackets (wing commander style)
    -- top-left
@@ -1016,28 +1154,29 @@ function draw_target_brackets()
    line(sx+sz,sy+sz,sx+sz,sy+sz-sz/2,col)
    line(sx+sz,sy+sz,sx+sz-sz/2,sy+sz,col)
 
-   -- current target gets extra indicator
+   -- current target: show range below brackets
    if is_target then
     -- diamond marker above
-    local dy=-sz-5
-    line(sx,sy+dy-3,sx-3,sy+dy,11)
-    line(sx,sy+dy-3,sx+3,sy+dy,11)
-    line(sx-3,sy+dy,sx,sy+dy+3,11)
-    line(sx+3,sy+dy,sx,sy+dy+3,11)
+    local tdy=-sz-5
+    line(sx,sy+tdy-3,sx-3,sy+tdy,9)
+    line(sx,sy+tdy-3,sx+3,sy+tdy,9)
+    line(sx-3,sy+tdy,sx,sy+tdy+3,9)
+    line(sx+3,sy+tdy,sx,sy+tdy+3,9)
+    -- range below
+    print(flr(dist).."m",sx-10,sy+sz+2,9)
    end
   else
    -- off-screen target indicator (arrow at edge)
    if e==target then
-    local dx=e.x-px
-    local dy=e.y-py
-    local dz=e.z-pz
-    -- project direction to screen
+    -- project direction to screen edge
     local ang=atan2(vx,-vz)
     local ex=64+cos(ang)*50
     local ey=64+sin(ang)*50
-    -- draw arrow
-    circfill(ex,ey,3,8)
-    print(">",ex-2,ey-3,11)
+    -- draw arrow pointing toward target
+    circfill(ex,ey,4,2)
+    circ(ex,ey,4,9)
+    -- show range
+    print(flr(dist).."m",ex-10,ey+6,9)
    end
   end
  end
