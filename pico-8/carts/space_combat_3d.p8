@@ -137,7 +137,7 @@ function _update60()
  mb=stat(34)>0
 
  if gstate=="title" then
-  if btnp(4) or btnp(5) then
+  if btnp(5) then
    start_game()
   end
  elseif gstate=="play" then
@@ -174,34 +174,33 @@ end
 function update_play()
  local ts=0.02
 
- -- up/down = speed
- if btn(2) then
-  throttle=min(throttle+0.03,1)
- end
- if btn(3) then
-  throttle=max(throttle-0.03,0)
- end
+ -- check if holding B (btn 4) for alternate mode
+ local alt_mode=btn(4)
 
- -- left/right = yaw or roll
- if roll_mode then
+ if alt_mode then
+  -- alternate mode: up/down = speed, left/right = roll
+  if btn(2) then
+   throttle=min(throttle+0.03,1)
+  end
+  if btn(3) then
+   throttle=max(throttle-0.03,0)
+  end
   if btn(0) then prz+=ts end
   if btn(1) then prz-=ts end
  else
+  -- regular mode: up/down = pitch, left/right = yaw
+  if btn(2) then prx-=ts end
+  if btn(3) then prx+=ts end
   if btn(0) then pry+=ts end
   if btn(1) then pry-=ts end
- end
-
- -- x button = pitch up
- if btn(5) then
-  prx-=ts*0.7
  end
 
  -- smooth speed
  pspeed+=(throttle*1.5-pspeed)*0.08
 
- -- fire
+ -- A button (btn 5) = fire
  pfire=max(0,pfire-1)
- if btn(4) and pfire==0 then
+ if btn(5) and pfire==0 then
   fire_bullet(px,py,pz,prx,pry,prz,true)
   pfire=8
   sfx(0)
@@ -436,16 +435,16 @@ function draw_title()
   end
  end
 
- rectfill(20,28,108,48,1)
+ rectfill(14,28,114,48,1)
  print("space combat 3d",28,32,11)
  print("---------------",28,40,5)
 
- print("up/down: speed",29,54,6)
- print("left/right: turn",25,62,6)
- print("x: pitch up",39,70,6)
- print("z: fire",47,78,6)
+ print("arrows: pitch/yaw",23,54,6)
+ print("hold z+arrows:",27,62,6)
+ print("speed/roll",39,70,13)
+ print("x: fire",47,80,6)
 
- print("press z or x",34,100,10)
+ print("press x to start",28,100,10)
 end
 
 function draw_play()
