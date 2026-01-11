@@ -194,13 +194,13 @@ planet_r=80
 
 function _init()
  poke(0x5f2d,1)
- -- more stars!
+ -- stars as normalized direction vectors
  for i=1,200 do
-  add(stars,{
-   rnd(400)-200,
-   rnd(400)-200,
-   rnd(300)+50
-  })
+  local x,y,z=rnd(2)-1,rnd(2)-1,rnd(2)-1
+  local l=sqrt(x*x+y*y+z*z)
+  if l>0.1 then
+   add(stars,{x/l,y/l,z/l})
+  end
  end
  -- normalize sun direction
  local l=sqrt(sun_dir[1]^2+sun_dir[2]^2+sun_dir[3]^2)
@@ -256,6 +256,10 @@ function start_game()
  -- spawn initial enemies
  for i=1,3 do
   spawn_enemy()
+ end
+ -- auto-target first enemy
+ if #enemies>0 then
+  target=enemies[1]
  end
 end
 
@@ -402,13 +406,6 @@ function update_ui()
   if mx>=110 and mx<=126 and my>=20 and my<=90 then
    local y=mid(25,my,85)
    throttle=1-(y-25)/60
-  end
- end
-
- -- roll toggle 5-38, 92-105
- if mb and not mp then
-  if mx>=5 and mx<=38 and my>=92 and my<=105 then
-   roll_mode=not roll_mode
   end
  end
 end
@@ -627,76 +624,55 @@ function draw_play()
  draw_hud()
 end
 
+-- project direction vector to screen (skybox style)
+function dir_to_screen(dx,dy,dz)
+ -- project direction onto camera axes
+ local vx=dx*c_rgt[1]+dy*c_rgt[2]+dz*c_rgt[3]
+ local vy=dx*c_up[1]+dy*c_up[2]+dz*c_up[3]
+ local vz=dx*c_fwd[1]+dy*c_fwd[2]+dz*c_fwd[3]
+ return vx,vy,vz
+end
+
 function draw_stars()
- -- draw sun (always in same direction, very far)
- local sun_dist=1000
- local sun_wx=sun_dir[1]*sun_dist
- local sun_wy=sun_dir[2]*sun_dist
- local sun_wz=sun_dir[3]*sun_dist
- local svx,svy,svz=to_cam_space(sun_wx,sun_wy,sun_wz)
- if svz>1 then
-  local ssx,ssy=proj(svx,svy,svz)
+ -- draw sun (skybox - fixed direction in sky)
+ local svx,svy,svz=dir_to_screen(sun_dir[1],sun_dir[2],sun_dir[3])
+ if svz>0.1 then
+  local ssx=64+svx*120/svz
+  local ssy=64-svy*120/svz
   if ssx>=-20 and ssx<148 and ssy>=-20 and ssy<148 then
-   -- sun glow
-   circfill(ssx,ssy,16,10)
-   circfill(ssx,ssy,12,9)
-   circfill(ssx,ssy,8,10)
-   circfill(ssx,ssy,5,7)
+   circfill(ssx,ssy,14,10)
+   circfill(ssx,ssy,10,9)
+   circfill(ssx,ssy,6,10)
+   circfill(ssx,ssy,3,7)
   end
  end
 
- -- draw planet (fixed position, wraps)
- local prx=planet_pos[1]-cx
- local pry=planet_pos[2]-cy
- local prz=planet_pos[3]-cz
- -- wrap planet around
- while prz<-400 do prz+=1600 end
- while prz>1200 do prz-=1600 end
- while prx<-800 do prx+=1600 end
- while prx>800 do prx-=1600 end
-
- local pvx,pvy,pvz=to_cam_space(prx+cx,pry+cy,prz+cz)
- if pvz>10 then
-  local psx,psy=proj(pvx,pvy,pvz)
-  local pr=planet_r*90/pvz
-  if psx>-pr and psx<128+pr and psy>-pr and psy<128+pr then
-   -- planet body (blue-green)
+ -- draw planet (skybox - fixed direction in sky)
+ local pdx,pdy,pdz=-0.4,0.3,0.6
+ local pvx,pvy,pvz=dir_to_screen(pdx,pdy,pdz)
+ if pvz>0.1 then
+  local psx=64+pvx*120/pvz
+  local psy=64-pvy*120/pvz
+  local pr=25/pvz
+  if psx>-pr-10 and psx<138+pr and psy>-pr-10 and psy<138+pr then
    circfill(psx,psy,pr,1)
-   circfill(psx,psy,pr*0.95,12)
-   -- atmosphere
+   circfill(psx,psy,pr*0.92,12)
    circ(psx,psy,pr,6)
-   -- land masses
-   if pr>5 then
-    circfill(psx-pr*0.3,psy-pr*0.2,pr*0.3,3)
-    circfill(psx+pr*0.2,psy+pr*0.3,pr*0.25,3)
-    circfill(psx-pr*0.1,psy+pr*0.4,pr*0.15,11)
+   if pr>4 then
+    circfill(psx-pr*0.3,psy-pr*0.2,pr*0.25,3)
+    circfill(psx+pr*0.2,psy+pr*0.25,pr*0.2,3)
    end
   end
  end
 
- -- draw stars
+ -- draw stars (skybox - fixed positions)
  for s in all(stars) do
-  local rx=s[1]-cx
-  local ry=s[2]-cy
-  local rz=s[3]-cz
-
-  while rz<0 do rz+=300 end
-  while rz>300 do rz-=300 end
-  while rx<-200 do rx+=400 end
-  while rx>200 do rx-=400 end
-  while ry<-200 do ry+=400 end
-  while ry>200 do ry-=400 end
-
-  local vx,vy,vz=to_cam_space(rx+cx,ry+cy,rz+cz)
-
-  if vz>1 then
-   local sx,sy=proj(vx,vy,vz)
+  local svx,svy,svz=dir_to_screen(s[1],s[2],s[3])
+  if svz>0.1 then
+   local sx=64+svx*90/svz
+   local sy=64-svy*90/svz
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    -- star color varies by depth
-    local col=7
-    if vz>150 then col=5
-    elseif vz>80 then col=6 end
-    pset(sx,sy,col)
+    pset(sx,sy,svz>0.7 and 7 or 6)
    end
   end
  end
@@ -875,26 +851,66 @@ function draw_hud()
  rectfill(113,fy-2,123,fy+2,7)
  print("thr",111,88,5)
 
- -- roll/yaw toggle
- local bc=roll_mode and 8 or 12
- rectfill(5,92,38,105,bc)
- rect(5,92,38,105,7)
- print(roll_mode and "roll" or "yaw",14,96,0)
+ -- radar (bottom left)
+ draw_radar()
 
- -- target info panel (bottom left)
+ -- target info panel
  if target then
-  rectfill(4,110,50,124,1)
-  rect(4,110,50,124,11)
-  print("tgt",6,112,11)
+  rectfill(4,88,50,102,1)
+  rect(4,88,50,102,11)
+  print("tgt",6,90,11)
   local dx=target.x-px
   local dy=target.y-py
   local dz=target.z-pz
   local dist=sqrt(dx*dx+dy*dy+dz*dz)
-  print(flr(dist).."m",6,118,7)
+  print(flr(dist).."m",6,96,7)
+ end
+end
+
+function draw_radar()
+ -- radar background (bottom left corner)
+ local rx,ry,rr=28,112,14
+ circfill(rx,ry,rr,1)
+ circ(rx,ry,rr,5)
+ circ(rx,ry,rr/2,5)
+ -- crosshair
+ line(rx-rr,ry,rx+rr,ry,5)
+ line(rx,ry-rr,rx,ry+rr,5)
+
+ -- draw enemies on radar
+ for e in all(enemies) do
+  -- get enemy position relative to player
+  local dx=e.x-px
+  local dy=e.y-py
+  local dz=e.z-pz
+
+  -- project onto player's local axes
+  local lx=dx*p_rgt[1]+dy*p_rgt[2]+dz*p_rgt[3]
+  local lz=dx*p_fwd[1]+dy*p_fwd[2]+dz*p_fwd[3]
+
+  -- scale to radar (100 units = full radar)
+  local scale=rr/100
+  local ex=rx+lx*scale
+  local ey=ry-lz*scale
+
+  -- clamp to radar bounds
+  local edx,edy=ex-rx,ey-ry
+  local ed=sqrt(edx*edx+edy*edy)
+  if ed>rr-2 then
+   ex=rx+edx*(rr-2)/ed
+   ey=ry+edy*(rr-2)/ed
+  end
+
+  -- draw blip
+  local col=(e==target) and 11 or 8
+  pset(ex,ey,col)
+  if e==target then
+   rect(ex-1,ey-1,ex+1,ey+1,11)
+  end
  end
 
- -- mouse
- pset(mx,my,7)
+ -- player arrow in center
+ pset(rx,ry,7)
 end
 
 function draw_target_brackets()
