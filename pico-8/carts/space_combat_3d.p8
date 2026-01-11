@@ -704,102 +704,155 @@ function update_enemies()
   -- use enemy speed
   local spd=e.spd or 0.4
 
-  -- turn rate for this enemy (faster when far away)
+  -- turn rate for this enemy
   local turn=e.acc or 0.02
-  if dist>150 then
-   turn=turn*3  -- turn 3x faster when far
-  elseif dist>100 then
-   turn=turn*2  -- turn 2x faster when medium distance
-  end
-
-  -- calculate target angles to face player
-  local target_ry=atan2(dx,dz)
-  local target_rx=0
-  if hdist>1 then
-   target_rx=-atan2(dy,hdist)
-  end
 
   -- get current forward vector
   local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
 
-  -- check if facing player (dot product)
-  local facing=0
+  -- normalize direction to player
+  local ndx,ndy,ndz=0,0,1
   if dist>1 then
-   facing=(fx*dx+fy*dy+fz*dz)/dist
+   ndx,ndy,ndz=dx/dist,dy/dist,dz/dist
   end
 
-  -- AI state machine
-  -- force pursuit if too far away
-  if dist>200 then
-   e.breakoff=0
-   e.evade=0
+  -- facing = dot product (1=toward, -1=away)
+  local facing=fx*ndx+fy*ndy+fz*ndz
+
+  -- cross product for turn direction
+  -- Y component: fx*ndz - fz*ndx (positive=turn right/increase ry)
+  -- X component: fy*ndz - fz*ndy (positive=pitch down/increase rx)
+  local cross_y=fx*ndz-fz*ndx
+  local cross_x=fy*ndz-fz*ndy
+
+  -- initialize state if needed
+  -- states: "pursuit", "attack", "breakoff"
+  if not e.state then e.state="pursuit" end
+  if not e.state_timer then e.state_timer=0 end
+
+  -- STATE TRANSITIONS
+  -- force pursuit if >300m OR pursuit timer expired (10-20 sec = 300-600 frames)
+  e.state_timer+=1
+  if dist>300 or e.state_timer>300+rnd(300) then
+   if e.state!="pursuit" then
+    e.state="pursuit"
+    e.state_timer=0
+    e.burst=0
+   end
   end
 
-  if e.breakoff and e.breakoff>0 then
+  -- pursuit->attack: when close enough (<150m)
+  if e.state=="pursuit" and dist<150 then
+   e.state="attack"
+   e.state_timer=0
+   e.burst=0
+  end
+
+  -- attack->breakoff: after firing burst (4-5 shots)
+  -- (handled in attack state below)
+
+  -- breakoff->pursuit: after breakoff timer OR if >300m
+  if e.state=="breakoff" then
+   if e.breakoff<=0 or dist>300 then
+    e.state="pursuit"
+    e.state_timer=0
+   end
+  end
+
+  -- DEBUG: print state info every ~30 frames
+  if e.state_timer%30==1 then
+   printh("["..e.state.."] d="..flr(dist).." fac="..flr(facing*100)/100 .." cy="..flr(cross_y*100)/100 .." cx="..flr(cross_x*100)/100)
+  end
+
+  -- EXECUTE CURRENT STATE
+  if e.state=="breakoff" then
    -- BREAKOFF: fly away from player
    e.breakoff-=1
-   -- move forward in current direction (away)
    e.x+=fx*spd*1.2
    e.y+=fy*spd*1.2
    e.z+=fz*spd*1.2
 
-  elseif e.evade and e.evade>0 then
-   -- EVADE: dodge sideways
-   e.evade-=1
-   local ex,ey,ez=rot3d(1,0,0,e.rx,e.ry,e.rz)
-   local estr=e.evade_dir*spd*1.5
-   e.x+=ex*estr+fx*spd*0.5
-   e.y+=ey*estr+fy*spd*0.5
-   e.z+=ez*estr+fz*spd*0.5
+  elseif e.state=="attack" then
+   -- ATTACK: turn toward player using cross product, fly forward, fire when facing
+   -- cross_y: positive = turn right (increase ry)
+   -- cross_x: positive = pitch up (decrease rx)
+   e.ry+=cross_y*turn
+   e.rx-=cross_x*turn
 
-  else
-   -- PURSUIT: turn toward player and fly forward
+   -- normalize angles
+   while e.ry>=1 do e.ry-=1 end
+   while e.ry<0 do e.ry+=1 end
+   while e.rx>=1 do e.rx-=1 end
+   while e.rx<0 do e.rx+=1 end
 
-   -- smoothly rotate toward target angles
-   local dry=target_ry-e.ry
-   -- wrap angle difference to -0.5 to 0.5
-   while dry>0.5 do dry-=1 end
-   while dry<-0.5 do dry+=1 end
-   e.ry+=dry*turn
-
-   local drx=target_rx-e.rx
-   while drx>0.5 do drx-=1 end
-   while drx<-0.5 do drx+=1 end
-   e.rx+=drx*turn
-
-   -- recalc forward after rotation
+   -- recalc forward after turning
    fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
+   facing=fx*ndx+fy*ndy+fz*ndz
 
-   -- move forward
+   -- move forward at full speed in attack mode
    e.x+=fx*spd
    e.y+=fy*spd
    e.z+=fz*spd
 
-   -- recalc facing after movement
-   dx,dy,dz=px-e.x,py-e.y,pz-e.z
-   sdx,sdy,sdz=dx/16,dy/16,dz/16
-   dist=sqrt(sdx*sdx+sdy*sdy+sdz*sdz)*16
-   if dist>1 then
-    facing=(fx*dx+fy*dy+fz*dz)/dist
-   end
-
-   -- firing: only when facing player and in range
+   -- firing: only when facing player
    e.fire-=1
-   if e.fire<=0 and dist<cfg.ai_fire_range and facing>cfg.ai_facing_threshold then
+   if e.fire<=0 and facing>cfg.ai_facing_threshold then
     fire_enemy_bullet(e.x,e.y,e.z,e.rx,e.ry,e.rz)
     e.fire=cfg.ai_refire_delay+rnd(cfg.ai_refire_random)
     sfx(1)
-    -- track burst shots
     e.burst=(e.burst or 0)+1
-    -- break off after firing burst
+    -- after burst, break off
     if e.burst>=cfg.ai_burst_shots+flr(rnd(cfg.ai_burst_random)) then
-     -- turn away and break off
      e.ry+=0.25+rnd(0.25)*(rnd(1)<0.5 and 1 or -1)
-     e.rx+=rnd(0.1)-0.05
+     while e.ry>=1 do e.ry-=1 end
+     while e.ry<0 do e.ry+=1 end
      e.breakoff=cfg.ai_breakoff_time+flr(rnd(cfg.ai_breakoff_random))
+     e.state="breakoff"
      e.burst=0
     end
    end
+
+  else
+   -- PURSUIT: turn toward player (faster) using cross product
+   turn=turn*2
+   if dist>200 then turn=turn*2 end  -- even faster when far
+
+   -- cross_y: positive = turn right (increase ry)
+   -- cross_x: positive = pitch up (decrease rx)
+   e.ry+=cross_y*turn
+   e.rx-=cross_x*turn
+
+   -- normalize angles
+   while e.ry>=1 do e.ry-=1 end
+   while e.ry<0 do e.ry+=1 end
+   while e.rx>=1 do e.rx-=1 end
+   while e.rx<0 do e.rx+=1 end
+
+   -- recalc forward after turning
+   fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
+   facing=fx*ndx+fy*ndy+fz*ndz
+
+   -- slow down when facing away, speed up when facing toward
+   local move_spd=spd
+   if facing<0 then
+    move_spd=spd*0.3
+   elseif facing<0.5 then
+    move_spd=spd*0.6
+   end
+
+   e.x+=fx*move_spd
+   e.y+=fy*move_spd
+   e.z+=fz*move_spd
+  end
+
+  -- handle evasion (can interrupt any state)
+  if e.evade and e.evade>0 then
+   e.evade-=1
+   local ex,ey,ez=rot3d(1,0,0,e.rx,e.ry,e.rz)
+   local estr=e.evade_dir*spd*1.5
+   e.x+=ex*estr
+   e.y+=ey*estr
+   e.z+=ez*estr
   end
 
  end
