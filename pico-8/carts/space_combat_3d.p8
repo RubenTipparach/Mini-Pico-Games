@@ -53,6 +53,10 @@ cfg={
  ai_breakoff_random=5,
  ai_reaim_time=5,
  ai_reaim_random=8,
+ -- shot-based evade mode
+ ai_evade_shots=10,      -- enter evade after this many shots
+ ai_evade_duration=90,   -- how long to evade (frames)
+ ai_evade_random=30,     -- random variance
 }
 
 -- game state
@@ -607,7 +611,8 @@ function spawn_enemy(etype)
   evade=0,
   evade_dir=0,
   breakoff=0,
-  burst=0
+  burst=0,
+  total_shots=0  -- track total shots for evade mode
  }
  -- type-specific stats from config
  local c
@@ -726,26 +731,29 @@ function update_enemies()
   local cross_x=fy*ndz-fz*ndy
 
   -- initialize state if needed
-  -- states: "pursuit", "attack", "breakoff"
+  -- states: "pursuit", "attack", "breakoff", "evade"
   if not e.state then e.state="pursuit" end
   if not e.state_timer then e.state_timer=0 end
 
   -- STATE TRANSITIONS
-  -- force pursuit if >300m OR pursuit timer expired (10-20 sec = 300-600 frames)
+  -- don't interrupt evade state - let it complete
   e.state_timer+=1
-  if dist>300 or e.state_timer>300+rnd(300) then
-   if e.state!="pursuit" then
-    e.state="pursuit"
+  if e.state!="evade" then
+   -- force pursuit if >300m OR pursuit timer expired (10-20 sec = 300-600 frames)
+   if dist>300 or e.state_timer>300+rnd(300) then
+    if e.state!="pursuit" then
+     e.state="pursuit"
+     e.state_timer=0
+     e.burst=0
+    end
+   end
+
+   -- pursuit->attack: when close enough (<150m)
+   if e.state=="pursuit" and dist<150 then
+    e.state="attack"
     e.state_timer=0
     e.burst=0
    end
-  end
-
-  -- pursuit->attack: when close enough (<150m)
-  if e.state=="pursuit" and dist<150 then
-   e.state="attack"
-   e.state_timer=0
-   e.burst=0
   end
 
   -- attack->breakoff: after firing burst (4-5 shots)
@@ -765,7 +773,30 @@ function update_enemies()
   end
 
   -- EXECUTE CURRENT STATE
-  if e.state=="breakoff" then
+  if e.state=="evade" then
+   -- EVADE: fly away from player aggressively after 10 shots
+   e.evade_timer=(e.evade_timer or 0)-1
+
+   -- slight weaving motion while evading
+   e.ry+=e.evade_yaw*turn*0.5
+   while e.ry>=1 do e.ry-=1 end
+   while e.ry<0 do e.ry+=1 end
+
+   -- recalc forward after turning
+   fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
+
+   -- fly away fast!
+   e.x+=fx*spd*1.5
+   e.y+=fy*spd*1.5
+   e.z+=fz*spd*1.5
+
+   -- transition back to pursuit when timer expires
+   if e.evade_timer<=0 then
+    e.state="pursuit"
+    e.state_timer=0
+   end
+
+  elseif e.state=="breakoff" then
    -- BREAKOFF: fly away from player
    e.breakoff-=1
    e.x+=fx*spd*1.2
@@ -801,8 +832,21 @@ function update_enemies()
     e.fire=cfg.ai_refire_delay+rnd(cfg.ai_refire_random)
     sfx(1)
     e.burst=(e.burst or 0)+1
-    -- after burst, break off
-    if e.burst>=cfg.ai_burst_shots+flr(rnd(cfg.ai_burst_random)) then
+    e.total_shots=(e.total_shots or 0)+1
+
+    -- check if should enter evade mode (after 10 shots)
+    if e.total_shots>=cfg.ai_evade_shots then
+     -- turn away sharply
+     e.ry+=0.3+rnd(0.2)*(rnd(1)<0.5 and 1 or -1)
+     while e.ry>=1 do e.ry-=1 end
+     while e.ry<0 do e.ry+=1 end
+     e.evade_timer=cfg.ai_evade_duration+flr(rnd(cfg.ai_evade_random))
+     e.evade_yaw=rnd(1)<0.5 and 1 or -1  -- random turn direction
+     e.state="evade"
+     e.total_shots=0
+     e.burst=0
+    -- after burst, break off briefly
+    elseif e.burst>=cfg.ai_burst_shots+flr(rnd(cfg.ai_burst_random)) then
      e.ry+=0.25+rnd(0.25)*(rnd(1)<0.5 and 1 or -1)
      while e.ry>=1 do e.ry-=1 end
      while e.ry<0 do e.ry+=1 end
