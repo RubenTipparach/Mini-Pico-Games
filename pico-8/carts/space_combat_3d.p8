@@ -491,7 +491,8 @@ function spawn_enemy(etype)
   etype=etype,
   ai=rnd(40)+20,
   evade=0,
-  evade_dir=0
+  evade_dir=0,
+  breakoff=0
  }
  -- type-specific stats
  if etype=="normal" then
@@ -579,56 +580,68 @@ end
 
 function update_enemies()
  for e in all(enemies) do
-  e.ai-=1
-  if e.ai<=0 then
-   local dx=px-e.x
-   local dy=py-e.y
-   local dz=pz-e.z
-   local d=sqrt(dx*dx+dy*dy+dz*dz)
-   if d>0 then
-    e.ry=atan2(dx,dz)
-    e.rx=-atan2(dy,sqrt(dx*dx+dz*dz))*0.5
-   end
-   e.ai=30+rnd(40)
+  -- get direction to player
+  local dx=px-e.x
+  local dy=py-e.y
+  local dz=pz-e.z
+  local dist=sqrt(dx*dx+dy*dy+dz*dz)
+
+  -- get enemy forward vector
+  local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
+
+  -- dot product to check if facing player
+  local facing=0
+  if dist>0 then
+   facing=(fx*dx+fy*dy+fz*dz)/dist
   end
 
   -- use enemy speed
   local spd=e.spd or 0.4
-  local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
 
-  -- evasion behavior when hit
-  if e.evade>0 then
+  -- AI state machine
+  if e.breakoff and e.breakoff>0 then
+   -- breaking off after attack run
+   e.breakoff-=1
+   e.x+=fx*spd*1.2
+   e.y+=fy*spd*1.2
+   e.z+=fz*spd*1.2
+  elseif e.evade>0 then
+   -- evasion behavior when hit
    e.evade-=1
-   -- calculate right vector for strafing
    local ex,ey,ez=rot3d(1,0,0,e.rx,e.ry,e.rz)
-   -- strafe sideways
    local estr=e.evade_dir*spd*1.5
    e.x+=ex*estr+fx*spd*0.3
    e.y+=ey*estr+fy*spd*0.3
    e.z+=ez*estr+fz*spd*0.3
   else
+   -- normal pursuit: rotate toward player
+   e.ai-=1
+   if e.ai<=0 then
+    if dist>0 then
+     e.ry=atan2(dx,dz)
+     e.rx=-atan2(dy,sqrt(dx*dx+dz*dz))*0.5
+    end
+    e.ai=20+rnd(30)
+   end
+   -- move forward
    e.x+=fx*spd
    e.y+=fy*spd
    e.z+=fz*spd
   end
 
+  -- firing: only when facing player (dot > 0.9) and in range
   e.fire-=1
-  if e.fire<=0 then
-   local dx=px-e.x
-   local dy=py-e.y
-   local dz=pz-e.z
-   local dist_sq=dx*dx+dy*dy+dz*dz
-   if dist_sq<40000 then -- 200 unit range
-    -- add inaccuracy based on acc stat
-    local acc=e.acc or 0.15
-    local aim_rx=e.rx+(rnd(acc*2)-acc)
-    local aim_ry=e.ry+(rnd(acc*2)-acc)
-    fire_enemy_bullet(e.x,e.y,e.z,aim_rx,aim_ry,e.rz)
-    e.fire=80+rnd(60) -- slower fire rate
-    sfx(1)
-   else
-    e.fire=30
-   end
+  if e.fire<=0 and facing>0.9 and dist<200 then
+   -- fire forward (enemy's facing direction)
+   fire_enemy_bullet(e.x,e.y,e.z,e.rx,e.ry,e.rz)
+   e.fire=80+rnd(60)
+   -- break off after firing
+   e.breakoff=40+rnd(30)
+   -- turn away slightly for break off
+   e.ry+=0.25-rnd(0.5)
+   sfx(1)
+  elseif e.fire<=0 then
+   e.fire=20 -- check again soon
   end
 
  end
