@@ -114,6 +114,14 @@ function rot3d(x,y,z,rx,ry,rz)
  return x,y,z
 end
 
+-- inverse rotation (reverse order, negated angles)
+function rot3d_inv(x,y,z,rx,ry,rz)
+ x,y,z=rotz(x,y,z,-rz)
+ x,y,z=roty(x,y,z,-ry)
+ x,y,z=rotx(x,y,z,-rx)
+ return x,y,z
+end
+
 function proj(x,y,z)
  if z<1 then z=1 end
  return 64+x*90/z,64-y*90/z,z
@@ -482,7 +490,7 @@ function draw_stars()
   while ry<-128 do ry+=256 end
   while ry>128 do ry-=256 end
 
-  rx,ry,rz=rot3d(rx,ry,rz,-crx,-cry,-crz)
+  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
 
   if rz>1 then
    local sx,sy=proj(rx,ry,rz)
@@ -500,7 +508,7 @@ function add_ship(faces,sx,sy,sz,rx,ry,rz,verts,fcs)
   x+=sx-cx
   y+=sy-cy
   z+=sz-cz
-  x,y,z=rot3d(x,y,z,-crx,-cry,-crz)
+  x,y,z=rot3d_inv(x,y,z,crx,cry,crz)
   tv[i]={x,y,z}
  end
 
@@ -586,7 +594,7 @@ function draw_bullets_()
   local rx=b.x-cx
   local ry=b.y-cy
   local rz=b.z-cz
-  rx,ry,rz=rot3d(rx,ry,rz,-crx,-cry,-crz)
+  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
   if rz>1 then
    local sx,sy=proj(rx,ry,rz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
@@ -601,7 +609,7 @@ function draw_parts()
   local rx=p[1]-cx
   local ry=p[2]-cy
   local rz=p[3]-cz
-  rx,ry,rz=rot3d(rx,ry,rz,-crx,-cry,-crz)
+  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
   if rz>1 then
    local sx,sy=proj(rx,ry,rz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
@@ -616,7 +624,7 @@ function draw_expls()
   local rx=e[1]-cx
   local ry=e[2]-cy
   local rz=e[3]-cz
-  rx,ry,rz=rot3d(rx,ry,rz,-crx,-cry,-crz)
+  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
   if rz>1 then
    local sx,sy=proj(rx,ry,rz)
    local sz=e[4]*5/rz
