@@ -17,9 +17,11 @@ prx,pry,prz=0,0,0
 pspeed=0
 pfire=0
 
--- camera
+-- camera (with smooth follow)
 cx,cy,cz=0,3,-20
 crx,cry,crz=0,0,0
+tcx,tcy,tcz=0,3,-20
+tcrx,tcry,tcrz=0,0,0
 
 -- controls
 roll_mode=false
@@ -162,16 +164,25 @@ function start_game()
  bullets={}
  parts={}
  expls={}
+ -- reset camera
+ cx,cy,cz=0,4,-22
+ crx,cry,crz=0,0,0
+ tcx,tcy,tcz=0,4,-22
+ tcrx,tcry,tcrz=0,0,0
 end
 
 function update_play()
- local ts=0.015
+ local ts=0.02
 
- -- pitch
- if btn(2) then prx-=ts end
- if btn(3) then prx+=ts end
+ -- up/down = speed
+ if btn(2) then
+  throttle=min(throttle+0.03,1)
+ end
+ if btn(3) then
+  throttle=max(throttle-0.03,0)
+ end
 
- -- yaw or roll
+ -- left/right = yaw or roll
  if roll_mode then
   if btn(0) then prz+=ts end
   if btn(1) then prz-=ts end
@@ -180,11 +191,13 @@ function update_play()
   if btn(1) then pry-=ts end
  end
 
- -- throttle
+ -- x button = pitch up
  if btn(5) then
-  throttle=min(throttle+0.02,1)
+  prx-=ts*0.7
  end
- pspeed+=(throttle*1.5-pspeed)*0.05
+
+ -- smooth speed
+ pspeed+=(throttle*1.5-pspeed)*0.08
 
  -- fire
  pfire=max(0,pfire-1)
@@ -200,12 +213,23 @@ function update_play()
  py+=fy*pspeed
  pz+=fz*pspeed
 
- -- camera follow
- local ox,oy,oz=rot3d(0,3,-18,prx,pry,prz)
- cx=px+ox
- cy=py+oy
- cz=pz+oz
- crx,cry,crz=prx,pry,prz
+ -- smooth follow camera
+ local ox,oy,oz=rot3d(0,4,-22,prx,pry,prz)
+ tcx=px+ox
+ tcy=py+oy
+ tcz=pz+oz
+ tcrx,tcry,tcrz=prx,pry,prz
+
+ -- lerp camera to target
+ local cl=0.08
+ cx+=(tcx-cx)*cl
+ cy+=(tcy-cy)*cl
+ cz+=(tcz-cz)*cl
+
+ -- lerp rotation (handle wrap-around)
+ crx+=(tcrx-crx)*cl
+ cry+=(tcry-cry)*cl
+ crz+=(tcrz-crz)*cl
 
  -- ui clicks
  update_ui()
@@ -416,9 +440,10 @@ function draw_title()
  print("space combat 3d",28,32,11)
  print("---------------",28,40,5)
 
- print("arrows: pitch/yaw",23,56,6)
- print("x: thrust",43,64,6)
- print("z: fire",47,72,6)
+ print("up/down: speed",29,54,6)
+ print("left/right: turn",25,62,6)
+ print("x: pitch up",39,70,6)
+ print("z: fire",47,78,6)
 
  print("press z or x",34,100,10)
 end
