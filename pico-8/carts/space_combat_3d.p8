@@ -39,8 +39,10 @@ mx,my,mb,mp=64,64,false,false
 
 -- targeting
 target=nil
-last_b_tap=0
-tap_window=15
+last_tap_time=-99
+prev_btn4=false
+match_speed=false
+match_speed_held=false
 
 -- tables
 stars={}
@@ -49,6 +51,7 @@ bullets={}
 parts={}
 expls={}
 dust={}
+debris={}
 
 -- ship verts/faces
 ship_v={
@@ -315,11 +318,24 @@ function update_play()
 
  if alt_mode then
   -- alternate mode: up/down = speed, left/right = roll
-  if btn(2) then
-   throttle=min(throttle+0.03,1)
-  end
-  if btn(3) then
-   throttle=max(throttle-0.03,0)
+  -- Z + up + down together = toggle match speed
+  if btn(2) and btn(3) then
+   if not match_speed_held then
+    match_speed=not match_speed
+    match_speed_held=true
+    sfx(4) -- beep to confirm toggle
+   end
+  else
+   match_speed_held=false
+   -- manual throttle adjustments disable match speed
+   if btn(2) then
+    throttle=min(throttle+0.03,1)
+    match_speed=false
+   end
+   if btn(3) then
+    throttle=max(throttle-0.03,0)
+    match_speed=false
+   end
   end
   -- roll around forward axis
   if btn(0) then
@@ -353,15 +369,25 @@ function update_play()
  -- re-orthonormalize to prevent error accumulation
  orthonorm()
 
- -- smooth speed
- pspeed+=(throttle*1.5-pspeed)*0.08
+ -- smooth speed (or match target speed)
+ local target_speed=throttle*1.5
+ if match_speed and target then
+  target_speed=target.spd or 0.5
+ end
+ pspeed+=(target_speed-pspeed)*0.08
 
- -- double-tap B to cycle targets
- if btnp(4) then
-  if t()-last_b_tap<0.25 then
+ -- double-tap Z to cycle targets (detect rising edge only)
+ local btn4_down=btn(4)
+ local btn4_tap=btn4_down and not prev_btn4
+ prev_btn4=btn4_down
+
+ if btn4_tap then
+  if t()-last_tap_time<0.3 then
    cycle_target()
+   last_tap_time=-99 -- reset to prevent triple-tap
+  else
+   last_tap_time=t()
   end
-  last_b_tap=t()
  end
 
  -- A button (btn 5) = fire
@@ -428,6 +454,17 @@ function update_play()
    e[4]-=0.5
    if e[4]<=0 then del(expls,e) end
   end
+ end
+
+ -- debris triangles
+ for d in all(debris) do
+  d.x+=d.vx
+  d.y+=d.vy
+  d.z+=d.vz
+  d.rx+=d.rvx
+  d.ry+=d.rvy
+  d.life-=1
+  if d.life<=0 then del(debris,d) end
  end
 
  -- dust particles (move opposite to player velocity)
@@ -497,6 +534,7 @@ function spawn_enemy(etype)
  -- type-specific stats
  if etype=="normal" then
   e.hp=20
+  e.max_hp=20
   e.spd=0.6
   e.fire=rnd(120)+90
   e.acc=0.15
@@ -504,6 +542,7 @@ function spawn_enemy(etype)
   e.f=enemy_f
  elseif etype=="heavy" then
   e.hp=50
+  e.max_hp=50
   e.spd=0.4
   e.fire=rnd(150)+120
   e.acc=0.1
@@ -511,6 +550,7 @@ function spawn_enemy(etype)
   e.f=heavy_f
  elseif etype=="fast" then
   e.hp=12
+  e.max_hp=12
   e.spd=0.9
   e.fire=rnd(100)+80
   e.acc=0.12
@@ -575,16 +615,18 @@ function cycle_target()
  cur_idx+=1
  if cur_idx>#enemies then cur_idx=1 end
  target=enemies[cur_idx]
- sfx(0)
+ sfx(4)
 end
 
 function update_enemies()
  for e in all(enemies) do
-  -- get direction to player
+  -- get direction to player (unscaled for AI use)
   local dx=px-e.x
   local dy=py-e.y
   local dz=pz-e.z
-  local dist=sqrt(dx*dx+dy*dy+dz*dz)
+  -- scale to avoid overflow
+  local sdx,sdy,sdz=dx/16,dy/16,dz/16
+  local dist=sqrt(sdx*sdx+sdy*sdy+sdz*sdz)*16
 
   -- get enemy forward vector
   local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
@@ -690,35 +732,43 @@ function update_bullets()
   if b.life<=0 then
    del(bullets,b)
   elseif b.plr then
+   -- player bullet -> enemy collision
    for e in all(enemies) do
-    local d=v_len({b.x-e.x,b.y-e.y,b.z-e.z})
-    if d<5 then -- 5 unit radius collision sphere
-     e.hp-=10
-     -- trigger evasion when hit
-     e.evade=20+rnd(15)
-     e.evade_dir=rnd(1)<0.5 and -1 or 1
-     add_parts(b.x,b.y,b.z,5,9)
+    -- scale down before squaring to avoid pico-8 overflow
+    local dx,dy,dz=(b.x-e.x)/16,(b.y-e.y)/16,(b.z-e.z)/16
+    local d=sqrt(dx*dx+dy*dy+dz*dz)*16
+    if d<10 then -- 10 unit radius collision sphere
+     e.hp-=1 -- reduced damage, takes many hits to kill
+     e.hits=(e.hits or 0)+1
+     -- trigger evasion after taking a few hits
+     if e.hits>=3+flr(rnd(3)) then
+      e.evade=20+rnd(15)
+      e.evade_dir=rnd(1)<0.5 and -1 or 1
+      e.hits=0 -- reset hit counter
+     end
+     add_parts(b.x,b.y,b.z,8,9)
+     add_expl(b.x,b.y,b.z,5) -- small explosion on hit
      del(bullets,b)
      sfx(2)
      if e.hp<=0 then
-      add_expl(e.x,e.y,e.z,15)
+      add_ship_expl(e.x,e.y,e.z,e.etype)
       score+=100
       del(enemies,e)
-      sfx(3)
-      -- wave progression handled in update_play()
+      sfx(5) -- big explosion sound
      end
      break
     end
    end
   else
-   local d=v_len({b.x-px,b.y-py,b.z-pz})
+   -- enemy bullet -> player collision
+   local dx,dy,dz=b.x-px,b.y-py,b.z-pz
+   local d=sqrt(abs(dx*dx+dy*dy+dz*dz))
    if d<6 then -- 6 unit radius for player
-    -- damage shields first, then health
-    shield_recharge=0 -- reset recharge timer
-    hit_flash=10 -- flash red when hit
+    shield_recharge=0
+    hit_flash=10
     if shield>0 then
      shield=max(0,shield-15)
-     add_parts(px,py,pz,4,12) -- blue shield sparks
+     add_parts(px,py,pz,4,12)
     else
      health-=10
      add_parts(px,py,pz,8,8)
@@ -740,6 +790,47 @@ function add_expl(x,y,z,sz)
  add(expls,{x,y,z,0,true,sz})
  add_parts(x,y,z,sz,10)
  add_parts(x,y,z,sz,9)
+end
+
+-- spectacular ship explosion with flying triangles
+function add_ship_expl(x,y,z,etype)
+ -- scale based on ship type
+ local sz,dur,debris_n,col
+ if etype=="heavy" then
+  sz,dur,debris_n,col=25,40,12,8
+ elseif etype=="fast" then
+  sz,dur,debris_n,col=12,20,6,9
+ else -- normal
+  sz,dur,debris_n,col=18,30,8,9
+ end
+
+ -- multiple expanding explosions
+ add(expls,{x,y,z,0,true,sz})
+ add(expls,{x+rnd(4)-2,y+rnd(4)-2,z+rnd(4)-2,0,true,sz*0.7})
+ add(expls,{x+rnd(6)-3,y+rnd(6)-3,z+rnd(6)-3,0,true,sz*0.5})
+
+ -- lots of particles
+ add_parts(x,y,z,sz*2,10)
+ add_parts(x,y,z,sz*2,9)
+ add_parts(x,y,z,sz,8)
+ add_parts(x,y,z,sz,7)
+
+ -- flying debris triangles
+ for i=1,debris_n do
+  local spd=0.3+rnd(0.5)
+  local vx,vy,vz=rnd(2)-1,rnd(2)-1,rnd(2)-1
+  local len=sqrt(vx*vx+vy*vy+vz*vz)
+  if len>0 then vx,vy,vz=vx/len*spd,vy/len*spd,vz/len*spd end
+  add(debris,{
+   x=x,y=y,z=z,
+   vx=vx,vy=vy,vz=vz,
+   rx=rnd(1),ry=rnd(1),rz=rnd(1),
+   rvx=rnd(0.1)-0.05,rvy=rnd(0.1)-0.05,
+   sz=1+rnd(2),
+   life=dur+rnd(20),
+   col=col
+  })
+ end
 end
 
 function _draw()
@@ -800,6 +891,7 @@ function draw_play()
 
  draw_bullets_()
  draw_parts()
+ draw_debris()
  draw_expls()
  draw_hud()
 end
@@ -1015,19 +1107,6 @@ function draw_bullets_()
    local sx,sy=proj(vx,vy,vz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
     circfill(sx,sy,max(1,4/vz),b.plr and 11 or 8)
-    -- debug: draw line to nearest enemy for player bullets
-    if b.plr then
-     for e in all(enemies) do
-      local evx,evy,evz=to_cam_space(e.x,e.y,e.z)
-      if evz>1 then
-       local esx,esy=proj(evx,evy,evz)
-       local d=v_len({b.x-e.x,b.y-e.y,b.z-e.z})
-       if d<30 then
-        line(sx,sy,esx,esy,d<5 and 8 or 5)
-       end
-      end
-     end
-    end
    end
   end
  end
@@ -1040,6 +1119,29 @@ function draw_parts()
    local sx,sy=proj(vx,vy,vz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
     pset(sx,sy,p[8])
+   end
+  end
+ end
+end
+
+function draw_debris()
+ for d in all(debris) do
+  local vx,vy,vz=to_cam_space(d.x,d.y,d.z)
+  if vz>1 then
+   local sx,sy=proj(vx,vy,vz)
+   local sz=d.sz*8/vz
+   if sx>-20 and sx<148 and sy>-20 and sy<148 then
+    -- spinning triangle
+    local a=d.rx
+    local x1,y1=sx+cos(a)*sz,sy+sin(a)*sz
+    local x2,y2=sx+cos(a+0.33)*sz,sy+sin(a+0.33)*sz
+    local x3,y3=sx+cos(a+0.66)*sz,sy+sin(a+0.66)*sz
+    -- fade color as life decreases
+    local col=d.col
+    if d.life<10 then col=5 end
+    line(x1,y1,x2,y2,col)
+    line(x2,y2,x3,y3,col)
+    line(x3,y3,x1,y1,col)
    end
   end
  end
@@ -1081,13 +1183,15 @@ end
 function draw_hud()
  -- shield bar (top)
  rectfill(4,4,34,8,0)
- rectfill(5,5,5+shield*0.28,7,12) -- blue
+ local sw=flr(shield*28/100)
+ if shield>0 then rectfill(5,5,5+sw,7,12) end -- blue
  rect(4,4,34,8,7)
  print("shld",5,10,12)
 
  -- health bar (below shield)
  rectfill(4,16,34,20,0)
- rectfill(5,17,5+health*0.28,19,health>30 and 11 or 8)
+ local hw=flr(health*28/100)
+ if health>0 then rectfill(5,17,5+hw,19,health>30 and 11 or 8) end
  rect(4,16,34,20,7)
  print("hull",5,22,7)
 
@@ -1112,20 +1216,33 @@ function draw_hud()
  rectfill(116,fy,120,85,11)
  rectfill(113,fy-2,123,fy+2,7)
  print("thr",111,88,5)
+ -- match speed indicator
+ if match_speed then
+  print("mtch",109,95,11)
+ end
 
  -- radar (bottom left)
  draw_radar()
 
  -- target info panel
  if target then
-  rectfill(55,110,80,124,1)
-  rect(55,110,80,124,9)
-  local dx=target.x-px
-  local dy=target.y-py
-  local dz=target.z-pz
-  local dist=sqrt(dx*dx+dy*dy+dz*dz)
-  print("rng",57,112,9)
-  print(flr(dist).."m",57,118,7)
+  rectfill(50,100,90,126,1)
+  rect(50,100,90,126,9)
+  -- scale to avoid overflow
+  local dx,dy,dz=(target.x-px)/16,(target.y-py)/16,(target.z-pz)/16
+  local dist=sqrt(dx*dx+dy*dy+dz*dz)*16
+  print("rng:"..flr(dist).."m",52,102,9)
+  -- enemy health bar (normalized 0-1)
+  print("hp:",52,112,8)
+  rectfill(64,111,88,117,0)
+  local max_hp=target.max_hp or 20
+  local hp_ratio=target.hp/max_hp
+  local ehp=flr(hp_ratio*22)
+  if target.hp>0 then
+   local hcol=hp_ratio>0.5 and 11 or (hp_ratio>0.25 and 9 or 8)
+   rectfill(65,112,65+ehp,116,hcol)
+  end
+  rect(64,111,88,117,7)
  end
 end
 
@@ -1206,10 +1323,9 @@ function draw_target_brackets()
  -- draw brackets on all enemies
  for e in all(enemies) do
   local vx,vy,vz=to_cam_space(e.x,e.y,e.z)
-  local dx=e.x-px
-  local dy=e.y-py
-  local dz=e.z-pz
-  local dist=sqrt(dx*dx+dy*dy+dz*dz)
+  -- scale to avoid overflow
+  local dx,dy,dz=(e.x-px)/16,(e.y-py)/16,(e.z-pz)/16
+  local dist=sqrt(dx*dx+dy*dy+dz*dz)*16
 
   if vz>1 then
    local sx,sy=proj(vx,vy,vz)
@@ -1244,17 +1360,20 @@ function draw_target_brackets()
     print(flr(dist).."m",sx-10,sy+sz+2,9)
    end
   else
-   -- off-screen target indicator (arrow at edge)
+   -- off-screen/behind indicator
    if e==target then
-    -- project direction to screen edge
-    local ang=atan2(vx,-vz)
+    -- use camera-space coords to find direction
+    local ang=atan2(vx,vz)
     local ex=64+cos(ang)*50
-    local ey=64+sin(ang)*50
+    local ey=64-sin(ang)*50
     -- draw arrow pointing toward target
-    circfill(ex,ey,4,2)
-    circ(ex,ey,4,9)
+    circfill(ex,ey,5,2)
+    circ(ex,ey,5,9)
+    -- arrow pointing direction
+    local ax,ay=cos(ang)*8,sin(ang)*8
+    line(ex,ey,ex+ax,ey-ay,9)
     -- show range
-    print(flr(dist).."m",ex-10,ey+6,9)
+    print(flr(dist).."m",ex-10,ey+8,9)
    end
   end
  end
@@ -1273,5 +1392,7 @@ __gfx__
 __sfx__
 000300001903020030270302e03033030350303500033000300002c0002700022000190001100009000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000300001d0301b03019030170301503013030110300f0300d0300b03009030070300503003030010300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000200000c5300a5200850006500045000250001500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050000500005000050
-001000002c0502a0502605022040210401e0401b04017040130400f0400c0400904006040030400104000040000400004000040000400004000040000400004000040000400004000040000400004000040000400000
+000100001867016670146600e6600a660086600566003660016600060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006
+000200001563013620116200e6200b62008620056200362001620006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600006000060000600
+000100001865018650186001860000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000400002b5502855028550255002450021500205001d5001a50016500125000e5000b50008500065000450002500015000050000500005000050000500005000050000500005000050000500005000050000500005000

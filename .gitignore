@@ -7,3 +7,9 @@ pico-8/carts/log.txt
 pico-8/carts/sdl_controllers.txt
 pico-8/carts/activity_log.txt
 pico-8/carts/.claude/settings.local.json
+.history/
+backup/last_run.p8
+sdl_controllers.txt
+log.txt
+config.txt
+activity_log.txt
