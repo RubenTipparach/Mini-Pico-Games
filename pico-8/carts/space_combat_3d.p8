@@ -4,6 +4,57 @@ __lua__
 -- 3d space combat
 -- flat shaded ships
 
+-- config (tweak these!)
+cfg={
+ -- player
+ start_health=100,
+ start_shield=100,
+ shield_regen_delay=120,
+ shield_regen_rate=0.1,
+ -- rotation
+ rot_accel=0.001,
+ rot_max=0.04,
+ rot_damp=0.85,
+ -- throttle
+ throttle_rate=0.03,
+ max_speed=1.5,
+ -- weapons
+ fire_rate=8,
+ bullet_speed=3,
+ bullet_life=120,
+ enemy_bullet_spd=3,
+ enemy_bullet_life=180,
+ -- collision
+ enemy_hit_radius=10,
+ player_hit_radius=4,
+ -- damage
+ bullet_dmg=1,
+ shield_dmg=15,
+ hull_dmg=10,
+ -- enemy types
+ enemy_normal={hp=20,spd=0.6,fire=20,acc=0.15},
+ enemy_heavy={hp=50,spd=0.4,fire=60,acc=0.1},
+ enemy_fast={hp=12,spd=0.9,fire=80,acc=0.12},
+ -- explosions
+ expl_normal={sz=18,dur=30,debris=8,col=9},
+ expl_heavy={sz=25,dur=40,debris=12,col=8},
+ expl_fast={sz=12,dur=20,debris=6,col=9},
+ -- evasion
+ evade_hit_threshold=3,
+ evade_duration=20,
+ -- enemy AI
+ ai_facing_threshold=0.5,
+ ai_fire_range=300,
+ ai_refire_delay=10,
+ ai_refire_random=8,
+ ai_burst_shots=4,
+ ai_burst_random=2,
+ ai_breakoff_time=8,
+ ai_breakoff_random=5,
+ ai_reaim_time=5,
+ ai_reaim_random=8,
+}
+
 -- game state
 gstate="title"
 score=0
@@ -36,6 +87,10 @@ c_up={0,1,0}
 roll_mode=false
 throttle=0
 mx,my,mb,mp=64,64,false,false
+-- rotational velocities (pitch, yaw, roll)
+rot_pitch=0
+rot_yaw=0
+rot_roll=0
 
 -- targeting
 target=nil
@@ -271,8 +326,8 @@ function start_game()
  pfire=0
  throttle=0.3
  score=0
- health=100
- shield=100
+ health=cfg.start_health
+ shield=cfg.start_shield
  shield_recharge=0
  hit_flash=0
  wave=1
@@ -283,8 +338,12 @@ function start_game()
  parts={}
  expls={}
  dust={}
+ debris={}
  target=nil
  last_b_tap=-99
+ rot_pitch=0
+ rot_yaw=0
+ rot_roll=0
  -- spawn dust particles around player
  for i=1,40 do
   add(dust,{
@@ -311,7 +370,8 @@ function start_game()
 end
 
 function update_play()
- local ts=0.02
+ -- rotation uses config values
+ local ra,rm,rd=cfg.rot_accel,cfg.rot_max,cfg.rot_damp
 
  -- check if holding B (btn 4) for alternate mode
  local alt_mode=btn(4)
@@ -329,48 +389,59 @@ function update_play()
    match_speed_held=false
    -- manual throttle adjustments disable match speed
    if btn(2) then
-    throttle=min(throttle+0.03,1)
+    throttle=min(throttle+cfg.throttle_rate,1)
     match_speed=false
    end
    if btn(3) then
-    throttle=max(throttle-0.03,0)
+    throttle=max(throttle-cfg.throttle_rate,0)
     match_speed=false
    end
   end
-  -- roll around forward axis
+  -- roll around forward axis (with acceleration)
   if btn(0) then
-   p_rgt=rot_axis(p_rgt,p_fwd,-ts)
-   p_up=rot_axis(p_up,p_fwd,-ts)
-  end
-  if btn(1) then
-   p_rgt=rot_axis(p_rgt,p_fwd,ts)
-   p_up=rot_axis(p_up,p_fwd,ts)
+   rot_roll=max(-rm,rot_roll-ra)
+  elseif btn(1) then
+   rot_roll=min(rm,rot_roll+ra)
+  else
+   rot_roll*=rd
   end
  else
-  -- regular mode: pitch around right (inverted), yaw around up
+  -- regular mode: pitch/yaw with acceleration
   if btn(2) then
-   p_fwd=rot_axis(p_fwd,p_rgt,-ts)
-   p_up=rot_axis(p_up,p_rgt,-ts)
-  end
-  if btn(3) then
-   p_fwd=rot_axis(p_fwd,p_rgt,ts)
-   p_up=rot_axis(p_up,p_rgt,ts)
+   rot_pitch=max(-rm,rot_pitch-ra)
+  elseif btn(3) then
+   rot_pitch=min(rm,rot_pitch+ra)
+  else
+   rot_pitch*=rd
   end
   if btn(0) then
-   p_fwd=rot_axis(p_fwd,p_up,ts)
-   p_rgt=rot_axis(p_rgt,p_up,ts)
+   rot_yaw=min(rm,rot_yaw+ra)
+  elseif btn(1) then
+   rot_yaw=max(-rm,rot_yaw-ra)
+  else
+   rot_yaw*=rd
   end
-  if btn(1) then
-   p_fwd=rot_axis(p_fwd,p_up,-ts)
-   p_rgt=rot_axis(p_rgt,p_up,-ts)
-  end
+ end
+
+ -- apply rotational velocities
+ if rot_pitch!=0 then
+  p_fwd=rot_axis(p_fwd,p_rgt,rot_pitch)
+  p_up=rot_axis(p_up,p_rgt,rot_pitch)
+ end
+ if rot_yaw!=0 then
+  p_fwd=rot_axis(p_fwd,p_up,rot_yaw)
+  p_rgt=rot_axis(p_rgt,p_up,rot_yaw)
+ end
+ if rot_roll!=0 then
+  p_rgt=rot_axis(p_rgt,p_fwd,rot_roll)
+  p_up=rot_axis(p_up,p_fwd,rot_roll)
  end
 
  -- re-orthonormalize to prevent error accumulation
  orthonorm()
 
  -- smooth speed (or match target speed)
- local target_speed=throttle*1.5
+ local target_speed=throttle*cfg.max_speed
  if match_speed and target then
   target_speed=target.spd or 0.5
  end
@@ -394,7 +465,7 @@ function update_play()
  pfire=max(0,pfire-1)
  if btn(5) and pfire==0 then
   fire_player_bullet()
-  pfire=8
+  pfire=cfg.fire_rate
   sfx(0)
  end
 
@@ -482,11 +553,11 @@ function update_play()
   if dz>30 then d.z-=60 end
  end
 
- -- shield recharge (recharge after 2 sec of no damage)
+ -- shield recharge
  if shield<shield_max then
   shield_recharge+=1
-  if shield_recharge>120 then
-   shield=min(shield+0.5,shield_max)
+  if shield_recharge>cfg.shield_regen_delay then
+   shield=min(shield+cfg.shield_regen_rate,shield_max)
   end
  end
 
@@ -520,43 +591,44 @@ end
 
 function spawn_enemy(etype)
  etype=etype or "normal"
+ -- spawn position relative to player
+ local ex=rnd(100)-50+px
+ local ey=rnd(60)-30+py
+ local ez=rnd(100)+80+pz
+ -- calculate direction to player for initial aim
+ local dx,dy,dz=px-ex,py-ey,pz-ez
+ local iry=atan2(dx,dz)
+ local irx=-atan2(dy,sqrt(dx*dx+dz*dz))
  local e={
-  x=rnd(100)-50+px,
-  y=rnd(60)-30+py,
-  z=rnd(100)+80+pz,
-  rx=0,ry=0.5,rz=0,
+  x=ex,y=ey,z=ez,
+  rx=irx,ry=iry,rz=0,
   etype=etype,
-  ai=rnd(40)+20,
+  ai=0,
   evade=0,
   evade_dir=0,
-  breakoff=0
+  breakoff=0,
+  burst=0
  }
- -- type-specific stats
+ -- type-specific stats from config
+ local c
  if etype=="normal" then
-  e.hp=20
-  e.max_hp=20
-  e.spd=0.6
-  e.fire=rnd(120)+90
-  e.acc=0.15
+  c=cfg.enemy_normal
   e.v=enemy_v
   e.f=enemy_f
  elseif etype=="heavy" then
-  e.hp=50
-  e.max_hp=50
-  e.spd=0.4
-  e.fire=rnd(150)+120
-  e.acc=0.1
+  c=cfg.enemy_heavy
   e.v=heavy_v
   e.f=heavy_f
  elseif etype=="fast" then
-  e.hp=12
-  e.max_hp=12
-  e.spd=0.9
-  e.fire=rnd(100)+80
-  e.acc=0.12
+  c=cfg.enemy_fast
   e.v=fast_v
   e.f=fast_f
  end
+ e.hp=c.hp
+ e.max_hp=c.hp
+ e.spd=c.spd
+ e.fire=rnd(30)+c.fire
+ e.acc=c.acc
  add(enemies,e)
 end
 
@@ -620,77 +692,121 @@ end
 
 function update_enemies()
  for e in all(enemies) do
-  -- get direction to player (unscaled for AI use)
+  -- get direction to player
   local dx=px-e.x
   local dy=py-e.y
   local dz=pz-e.z
   -- scale to avoid overflow
   local sdx,sdy,sdz=dx/16,dy/16,dz/16
   local dist=sqrt(sdx*sdx+sdy*sdy+sdz*sdz)*16
-
-  -- get enemy forward vector
-  local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
-
-  -- dot product to check if facing player
-  local facing=0
-  if dist>0 then
-   facing=(fx*dx+fy*dy+fz*dz)/dist
-  end
+  local hdist=sqrt(sdx*sdx+sdz*sdz)*16
 
   -- use enemy speed
   local spd=e.spd or 0.4
 
+  -- turn rate for this enemy (faster when far away)
+  local turn=e.acc or 0.02
+  if dist>150 then
+   turn=turn*3  -- turn 3x faster when far
+  elseif dist>100 then
+   turn=turn*2  -- turn 2x faster when medium distance
+  end
+
+  -- calculate target angles to face player
+  local target_ry=atan2(dx,dz)
+  local target_rx=0
+  if hdist>1 then
+   target_rx=-atan2(dy,hdist)
+  end
+
+  -- get current forward vector
+  local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
+
+  -- check if facing player (dot product)
+  local facing=0
+  if dist>1 then
+   facing=(fx*dx+fy*dy+fz*dz)/dist
+  end
+
   -- AI state machine
+  -- force pursuit if too far away
+  if dist>200 then
+   e.breakoff=0
+   e.evade=0
+  end
+
   if e.breakoff and e.breakoff>0 then
-   -- breaking off after attack run
+   -- BREAKOFF: fly away from player
    e.breakoff-=1
+   -- move forward in current direction (away)
    e.x+=fx*spd*1.2
    e.y+=fy*spd*1.2
    e.z+=fz*spd*1.2
-  elseif e.evade>0 then
-   -- evasion behavior when hit
+
+  elseif e.evade and e.evade>0 then
+   -- EVADE: dodge sideways
    e.evade-=1
    local ex,ey,ez=rot3d(1,0,0,e.rx,e.ry,e.rz)
    local estr=e.evade_dir*spd*1.5
-   e.x+=ex*estr+fx*spd*0.3
-   e.y+=ey*estr+fy*spd*0.3
-   e.z+=ez*estr+fz*spd*0.3
+   e.x+=ex*estr+fx*spd*0.5
+   e.y+=ey*estr+fy*spd*0.5
+   e.z+=ez*estr+fz*spd*0.5
+
   else
-   -- normal pursuit: rotate toward player
-   e.ai-=1
-   if e.ai<=0 then
-    if dist>0 then
-     e.ry=atan2(dx,dz)
-     e.rx=-atan2(dy,sqrt(dx*dx+dz*dz))*0.5
-    end
-    e.ai=20+rnd(30)
-   end
+   -- PURSUIT: turn toward player and fly forward
+
+   -- smoothly rotate toward target angles
+   local dry=target_ry-e.ry
+   -- wrap angle difference to -0.5 to 0.5
+   while dry>0.5 do dry-=1 end
+   while dry<-0.5 do dry+=1 end
+   e.ry+=dry*turn
+
+   local drx=target_rx-e.rx
+   while drx>0.5 do drx-=1 end
+   while drx<-0.5 do drx+=1 end
+   e.rx+=drx*turn
+
+   -- recalc forward after rotation
+   fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
+
    -- move forward
    e.x+=fx*spd
    e.y+=fy*spd
    e.z+=fz*spd
-  end
 
-  -- firing: only when facing player (dot > 0.9) and in range
-  e.fire-=1
-  if e.fire<=0 and facing>0.9 and dist<200 then
-   -- fire forward (enemy's facing direction)
-   fire_enemy_bullet(e.x,e.y,e.z,e.rx,e.ry,e.rz)
-   e.fire=80+rnd(60)
-   -- break off after firing
-   e.breakoff=40+rnd(30)
-   -- turn away slightly for break off
-   e.ry+=0.25-rnd(0.5)
-   sfx(1)
-  elseif e.fire<=0 then
-   e.fire=20 -- check again soon
+   -- recalc facing after movement
+   dx,dy,dz=px-e.x,py-e.y,pz-e.z
+   sdx,sdy,sdz=dx/16,dy/16,dz/16
+   dist=sqrt(sdx*sdx+sdy*sdy+sdz*sdz)*16
+   if dist>1 then
+    facing=(fx*dx+fy*dy+fz*dz)/dist
+   end
+
+   -- firing: only when facing player and in range
+   e.fire-=1
+   if e.fire<=0 and dist<cfg.ai_fire_range and facing>cfg.ai_facing_threshold then
+    fire_enemy_bullet(e.x,e.y,e.z,e.rx,e.ry,e.rz)
+    e.fire=cfg.ai_refire_delay+rnd(cfg.ai_refire_random)
+    sfx(1)
+    -- track burst shots
+    e.burst=(e.burst or 0)+1
+    -- break off after firing burst
+    if e.burst>=cfg.ai_burst_shots+flr(rnd(cfg.ai_burst_random)) then
+     -- turn away and break off
+     e.ry+=0.25+rnd(0.25)*(rnd(1)<0.5 and 1 or -1)
+     e.rx+=rnd(0.1)-0.05
+     e.breakoff=cfg.ai_breakoff_time+flr(rnd(cfg.ai_breakoff_random))
+     e.burst=0
+    end
+   end
   end
 
  end
 end
 
 function fire_player_bullet()
- local spd=3
+ local spd=cfg.bullet_speed
  add(bullets,{
   x=px+p_fwd[1]*5,
   y=py+p_fwd[2]*5,
@@ -698,27 +814,27 @@ function fire_player_bullet()
   vx=p_fwd[1]*spd+p_fwd[1]*pspeed,
   vy=p_fwd[2]*spd+p_fwd[2]*pspeed,
   vz=p_fwd[3]*spd+p_fwd[3]*pspeed,
-  plr=true,life=120
+  plr=true,life=cfg.bullet_life
  })
 end
 
 function fire_bullet(x,y,z,rx,ry,rz,plr)
  local fx,fy,fz=rot3d(0,0,1,rx,ry,rz)
- local spd=plr and 3 or 1.5
+ local spd=plr and cfg.bullet_speed or 1.5
  add(bullets,{
   x=x+fx*5,y=y+fy*5,z=z+fz*5,
   vx=fx*spd,vy=fy*spd,vz=fz*spd,
-  plr=plr,life=120
+  plr=plr,life=cfg.bullet_life
  })
 end
 
 function fire_enemy_bullet(x,y,z,rx,ry,rz)
  local fx,fy,fz=rot3d(0,0,1,rx,ry,rz)
- local spd=0.8 -- slower enemy bullets
+ local spd=cfg.enemy_bullet_spd
  add(bullets,{
   x=x+fx*5,y=y+fy*5,z=z+fz*5,
   vx=fx*spd,vy=fy*spd,vz=fz*spd,
-  plr=false,life=180
+  plr=false,life=cfg.enemy_bullet_life
  })
 end
 
@@ -737,12 +853,12 @@ function update_bullets()
     -- scale down before squaring to avoid pico-8 overflow
     local dx,dy,dz=(b.x-e.x)/16,(b.y-e.y)/16,(b.z-e.z)/16
     local d=sqrt(dx*dx+dy*dy+dz*dz)*16
-    if d<10 then -- 10 unit radius collision sphere
-     e.hp-=1 -- reduced damage, takes many hits to kill
+    if d<cfg.enemy_hit_radius then
+     e.hp-=cfg.bullet_dmg
      e.hits=(e.hits or 0)+1
      -- trigger evasion after taking a few hits
-     if e.hits>=3+flr(rnd(3)) then
-      e.evade=20+rnd(15)
+     if e.hits>=cfg.evade_hit_threshold+flr(rnd(3)) then
+      e.evade=cfg.evade_duration+rnd(15)
       e.evade_dir=rnd(1)<0.5 and -1 or 1
       e.hits=0 -- reset hit counter
      end
@@ -761,16 +877,17 @@ function update_bullets()
    end
   else
    -- enemy bullet -> player collision
-   local dx,dy,dz=b.x-px,b.y-py,b.z-pz
-   local d=sqrt(abs(dx*dx+dy*dy+dz*dz))
-   if d<6 then -- 6 unit radius for player
+   -- scale down before squaring to avoid pico-8 overflow
+   local dx,dy,dz=(b.x-px)/16,(b.y-py)/16,(b.z-pz)/16
+   local d=sqrt(dx*dx+dy*dy+dz*dz)*16
+   if d<cfg.player_hit_radius then
     shield_recharge=0
     hit_flash=10
     if shield>0 then
-     shield=max(0,shield-15)
+     shield=max(0,shield-cfg.shield_dmg)
      add_parts(px,py,pz,4,12)
     else
-     health-=10
+     health-=cfg.hull_dmg
      add_parts(px,py,pz,8,8)
     end
     del(bullets,b)
@@ -794,15 +911,16 @@ end
 
 -- spectacular ship explosion with flying triangles
 function add_ship_expl(x,y,z,etype)
- -- scale based on ship type
- local sz,dur,debris_n,col
+ -- get explosion config based on ship type
+ local ec
  if etype=="heavy" then
-  sz,dur,debris_n,col=25,40,12,8
+  ec=cfg.expl_heavy
  elseif etype=="fast" then
-  sz,dur,debris_n,col=12,20,6,9
+  ec=cfg.expl_fast
  else -- normal
-  sz,dur,debris_n,col=18,30,8,9
+  ec=cfg.expl_normal
  end
+ local sz,dur,debris_n,col=ec.sz,ec.dur,ec.debris,ec.col
 
  -- multiple expanding explosions
  add(expls,{x,y,z,0,true,sz})
@@ -1105,8 +1223,18 @@ function draw_bullets_()
   local vx,vy,vz=to_cam_space(b.x,b.y,b.z)
   if vz>1 then
    local sx,sy=proj(vx,vy,vz)
-   if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    circfill(sx,sy,max(1,4/vz),b.plr and 11 or 8)
+   if sx>=-20 and sx<148 and sy>=-20 and sy<148 then
+    -- draw tracer streak (tail behind bullet)
+    local tlen=b.plr and 3 or 5
+    local tx,ty,tz=b.x-b.vx*tlen,b.y-b.vy*tlen,b.z-b.vz*tlen
+    local tvx,tvy,tvz=to_cam_space(tx,ty,tz)
+    if tvz>1 then
+     local tsx,tsy=proj(tvx,tvy,tvz)
+     local col=b.plr and 11 or 8
+     line(tsx,tsy,sx,sy,col)
+    end
+    -- bullet head
+    circfill(sx,sy,max(1,3/vz),b.plr and 10 or 9)
    end
   end
  end
