@@ -654,38 +654,7 @@ function dir_to_screen(dx,dy,dz)
 end
 
 function draw_stars()
- -- draw sun (skybox - fixed direction in sky)
- local svx,svy,svz=dir_to_screen(sun_dir[1],sun_dir[2],sun_dir[3])
- if svz>0.1 then
-  local ssx=64+svx*120/svz
-  local ssy=64-svy*120/svz
-  if ssx>=-20 and ssx<148 and ssy>=-20 and ssy<148 then
-   circfill(ssx,ssy,14,10)
-   circfill(ssx,ssy,10,9)
-   circfill(ssx,ssy,6,10)
-   circfill(ssx,ssy,3,7)
-  end
- end
-
- -- draw planet (skybox - fixed direction in sky)
- local pdx,pdy,pdz=-0.4,0.3,0.6
- local pvx,pvy,pvz=dir_to_screen(pdx,pdy,pdz)
- if pvz>0.1 then
-  local psx=64+pvx*120/pvz
-  local psy=64-pvy*120/pvz
-  local pr=25/pvz
-  if psx>-pr-10 and psx<138+pr and psy>-pr-10 and psy<138+pr then
-   circfill(psx,psy,pr,1)
-   circfill(psx,psy,pr*0.92,12)
-   circ(psx,psy,pr,6)
-   if pr>4 then
-    circfill(psx-pr*0.3,psy-pr*0.2,pr*0.25,3)
-    circfill(psx+pr*0.2,psy+pr*0.25,pr*0.2,3)
-   end
-  end
- end
-
- -- draw stars (skybox - fixed positions, twinkling)
+ -- draw stars first (background layer, twinkling)
  local tm=t()*3
  for i,s in pairs(stars) do
   local svx,svy,svz=dir_to_screen(s[1],s[2],s[3])
@@ -706,6 +675,37 @@ function draw_stars()
     end
     pset(sx,sy,cols[ci])
    end
+  end
+ end
+
+ -- draw planet (in front of stars)
+ local pdx,pdy,pdz=-0.4,0.3,0.6
+ local pvx,pvy,pvz=dir_to_screen(pdx,pdy,pdz)
+ if pvz>0.1 then
+  local psx=64+pvx*120/pvz
+  local psy=64-pvy*120/pvz
+  local pr=25/pvz
+  if psx>-pr-10 and psx<138+pr and psy>-pr-10 and psy<138+pr then
+   circfill(psx,psy,pr,1)
+   circfill(psx,psy,pr*0.92,12)
+   circ(psx,psy,pr,6)
+   if pr>4 then
+    circfill(psx-pr*0.3,psy-pr*0.2,pr*0.25,3)
+    circfill(psx+pr*0.2,psy+pr*0.25,pr*0.2,3)
+   end
+  end
+ end
+
+ -- draw sun last (in front of everything)
+ local svx,svy,svz=dir_to_screen(sun_dir[1],sun_dir[2],sun_dir[3])
+ if svz>0.1 then
+  local ssx=64+svx*120/svz
+  local ssy=64-svy*120/svz
+  if ssx>=-20 and ssx<148 and ssy>=-20 and ssy<148 then
+   circfill(ssx,ssy,14,10)
+   circfill(ssx,ssy,10,9)
+   circfill(ssx,ssy,6,10)
+   circfill(ssx,ssy,3,7)
   end
  end
 end
