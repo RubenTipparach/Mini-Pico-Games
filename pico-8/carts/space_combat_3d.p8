@@ -43,6 +43,7 @@ enemies={}
 bullets={}
 parts={}
 expls={}
+dust={}
 
 -- ship verts/faces
 ship_v={
@@ -242,8 +243,17 @@ function start_game()
  bullets={}
  parts={}
  expls={}
+ dust={}
  target=nil
  last_b_tap=-99
+ -- spawn dust particles around player
+ for i=1,40 do
+  add(dust,{
+   x=rnd(60)-30,
+   y=rnd(60)-30,
+   z=rnd(60)-30
+  })
+ end
  -- reset player orientation
  p_fwd={0,0,1}
  p_rgt={1,0,0}
@@ -386,6 +396,21 @@ function update_play()
   end
  end
 
+ -- dust particles (move opposite to player velocity)
+ for d in all(dust) do
+  d.x-=p_fwd[1]*pspeed
+  d.y-=p_fwd[2]*pspeed
+  d.z-=p_fwd[3]*pspeed
+  -- wrap around player
+  local dx,dy,dz=d.x,d.y,d.z
+  if dx<-30 then d.x+=60 end
+  if dx>30 then d.x-=60 end
+  if dy<-30 then d.y+=60 end
+  if dy>30 then d.y-=60 end
+  if dz<-30 then d.z+=60 end
+  if dz>30 then d.z-=60 end
+ end
+
  -- spawn
  spawn_t-=1
  if spawn_t<=0 and #enemies<5+wave then
@@ -478,12 +503,6 @@ function update_enemies()
    end
   end
 
-  local dx=e.x-px
-  local dy=e.y-py
-  local dz=e.z-pz
-  if dx*dx+dy*dy+dz*dz>40000 then
-   del(enemies,e)
-  end
  end
 end
 
@@ -604,6 +623,7 @@ end
 
 function draw_play()
  draw_stars()
+ draw_dust()
 
  local faces={}
  add_player_ship(faces,ship_v,ship_f)
@@ -665,14 +685,26 @@ function draw_stars()
   end
  end
 
- -- draw stars (skybox - fixed positions)
- for s in all(stars) do
+ -- draw stars (skybox - fixed positions, twinkling)
+ local tm=t()*3
+ for i,s in pairs(stars) do
   local svx,svy,svz=dir_to_screen(s[1],s[2],s[3])
   if svz>0.1 then
    local sx=64+svx*90/svz
    local sy=64-svy*90/svz
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    pset(sx,sy,svz>0.7 and 7 or 6)
+    -- twinkle based on star index and time
+    local twinkle=sin(tm+i*0.1)
+    -- varied colors: white, light blue, yellow, dim
+    local cols={7,12,10,6,5}
+    local ci=1+(i%5)
+    -- twinkle affects brightness
+    if twinkle<-0.3 then
+     ci=min(ci+1,5)
+    elseif twinkle>0.5 then
+     ci=max(ci-1,1)
+    end
+    pset(sx,sy,cols[ci])
    end
   end
  end
@@ -809,6 +841,26 @@ function draw_parts()
  end
 end
 
+function draw_dust()
+ for d in all(dust) do
+  -- dust is relative to player position
+  local wx=px+d.x
+  local wy=py+d.y
+  local wz=pz+d.z
+  local vx,vy,vz=to_cam_space(wx,wy,wz)
+  if vz>1 and vz<50 then
+   local sx,sy=proj(vx,vy,vz)
+   if sx>=0 and sx<128 and sy>=0 and sy<128 then
+    -- grey colors: 5 (dark), 6 (med), 13 (light)
+    local col=5
+    if vz<15 then col=6
+    elseif vz<8 then col=13 end
+    pset(sx,sy,col)
+   end
+  end
+ end
+end
+
 function draw_expls()
  for e in all(expls) do
   local vx,vy,vz=to_cam_space(e[1],e[2],e[3])
@@ -884,12 +936,12 @@ function draw_radar()
   local dy=e.y-py
   local dz=e.z-pz
 
-  -- project onto player's local axes
+  -- project onto player's local axes (x=right, z=forward)
   local lx=dx*p_rgt[1]+dy*p_rgt[2]+dz*p_rgt[3]
   local lz=dx*p_fwd[1]+dy*p_fwd[2]+dz*p_fwd[3]
 
-  -- scale to radar (100 units = full radar)
-  local scale=rr/100
+  -- scale to radar (200 units = full radar radius)
+  local scale=rr/200
   local ex=rx+lx*scale
   local ey=ry-lz*scale
 
@@ -901,15 +953,18 @@ function draw_radar()
    ey=ry+edy*(rr-2)/ed
   end
 
-  -- draw blip
+  -- draw blip (bigger for visibility)
   local col=(e==target) and 11 or 8
-  pset(ex,ey,col)
   if e==target then
-   rect(ex-1,ey-1,ex+1,ey+1,11)
+   rectfill(ex-1,ey-1,ex+1,ey+1,11)
+  else
+   pset(ex,ey,col)
+   pset(ex+1,ey,col)
+   pset(ex,ey+1,col)
   end
  end
 
- -- player arrow in center
+ -- player dot in center
  pset(rx,ry,7)
 end
 
