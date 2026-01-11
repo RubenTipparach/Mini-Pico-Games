@@ -11,17 +11,21 @@ health=100
 wave=1
 spawn_t=60
 
--- player
+-- player position
 px,py,pz=0,0,0
-prx,pry,prz=0,0,0
 pspeed=0
 pfire=0
 
--- camera (with smooth follow)
+-- player orientation (local axes)
+p_fwd={0,0,1}   -- forward vector
+p_rgt={1,0,0}   -- right vector
+p_up={0,1,0}    -- up vector
+
+-- camera
 cx,cy,cz=0,3,-20
-crx,cry,crz=0,0,0
-tcx,tcy,tcz=0,3,-20
-tcrx,tcry,tcrz=0,0,0
+c_fwd={0,0,1}
+c_rgt={1,0,0}
+c_up={0,1,0}
 
 -- controls
 roll_mode=false
@@ -114,12 +118,43 @@ function rot3d(x,y,z,rx,ry,rz)
  return x,y,z
 end
 
--- inverse rotation (reverse order, negated angles)
-function rot3d_inv(x,y,z,rx,ry,rz)
- x,y,z=rotz(x,y,z,-rz)
- x,y,z=roty(x,y,z,-ry)
- x,y,z=rotx(x,y,z,-rx)
- return x,y,z
+-- rotate vector v around axis by angle a
+function rot_axis(v,axis,a)
+ local c,s=cos(a),sin(a)
+ local ax,ay,az=axis[1],axis[2],axis[3]
+ local vx,vy,vz=v[1],v[2],v[3]
+
+ -- rodrigues rotation formula
+ local dot=ax*vx+ay*vy+az*vz
+ local cx=ay*vz-az*vy
+ local cy=az*vx-ax*vz
+ local cz=ax*vy-ay*vx
+
+ return {
+  vx*c+cx*s+ax*dot*(1-c),
+  vy*c+cy*s+ay*dot*(1-c),
+  vz*c+cz*s+az*dot*(1-c)
+ }
+end
+
+-- transform point by orientation matrix (fwd,rgt,up)
+function orient_point(x,y,z,fwd,rgt,up)
+ return
+  x*rgt[1]+y*up[1]+z*fwd[1],
+  x*rgt[2]+y*up[2]+z*fwd[2],
+  x*rgt[3]+y*up[3]+z*fwd[3]
+end
+
+-- transform to camera space
+function to_cam_space(wx,wy,wz)
+ local rx=wx-cx
+ local ry=wy-cy
+ local rz=wz-cz
+ -- project onto camera axes
+ return
+  rx*c_rgt[1]+ry*c_rgt[2]+rz*c_rgt[3],
+  rx*c_up[1]+ry*c_up[2]+rz*c_up[3],
+  rx*c_fwd[1]+ry*c_fwd[2]+rz*c_fwd[3]
 end
 
 function proj(x,y,z)
@@ -160,10 +195,9 @@ end
 function start_game()
  gstate="play"
  px,py,pz=0,0,0
- prx,pry,prz=0,0,0
  pspeed=0
  pfire=0
- throttle=0.3  -- start with some speed
+ throttle=0.3
  score=0
  health=100
  wave=1
@@ -172,11 +206,15 @@ function start_game()
  bullets={}
  parts={}
  expls={}
+ -- reset player orientation
+ p_fwd={0,0,1}
+ p_rgt={1,0,0}
+ p_up={0,1,0}
  -- reset camera
  cx,cy,cz=0,4,-22
- crx,cry,crz=0,0,0
- tcx,tcy,tcz=0,4,-22
- tcrx,tcry,tcrz=0,0,0
+ c_fwd={0,0,1}
+ c_rgt={1,0,0}
+ c_up={0,1,0}
  -- spawn initial enemies
  for i=1,3 do
   spawn_enemy()
@@ -197,14 +235,33 @@ function update_play()
   if btn(3) then
    throttle=max(throttle-0.03,0)
   end
-  if btn(0) then prz-=ts end
-  if btn(1) then prz+=ts end
+  -- roll around forward axis
+  if btn(0) then
+   p_rgt=rot_axis(p_rgt,p_fwd,-ts)
+   p_up=rot_axis(p_up,p_fwd,-ts)
+  end
+  if btn(1) then
+   p_rgt=rot_axis(p_rgt,p_fwd,ts)
+   p_up=rot_axis(p_up,p_fwd,ts)
+  end
  else
-  -- regular mode: up/down = pitch, left/right = yaw
-  if btn(2) then prx+=ts end  -- up = pitch up
-  if btn(3) then prx-=ts end  -- down = pitch down
-  if btn(0) then pry-=ts end  -- left = yaw left
-  if btn(1) then pry+=ts end  -- right = yaw right
+  -- regular mode: pitch around right, yaw around up
+  if btn(2) then
+   p_fwd=rot_axis(p_fwd,p_rgt,ts)
+   p_up=rot_axis(p_up,p_rgt,ts)
+  end
+  if btn(3) then
+   p_fwd=rot_axis(p_fwd,p_rgt,-ts)
+   p_up=rot_axis(p_up,p_rgt,-ts)
+  end
+  if btn(0) then
+   p_fwd=rot_axis(p_fwd,p_up,ts)
+   p_rgt=rot_axis(p_rgt,p_up,ts)
+  end
+  if btn(1) then
+   p_fwd=rot_axis(p_fwd,p_up,-ts)
+   p_rgt=rot_axis(p_rgt,p_up,-ts)
+  end
  end
 
  -- smooth speed
@@ -213,34 +270,39 @@ function update_play()
  -- A button (btn 5) = fire
  pfire=max(0,pfire-1)
  if btn(5) and pfire==0 then
-  fire_bullet(px,py,pz,prx,pry,prz,true)
+  fire_player_bullet()
   pfire=8
   sfx(0)
  end
 
- -- move player
- local fx,fy,fz=rot3d(0,0,1,prx,pry,prz)
- px+=fx*pspeed
- py+=fy*pspeed
- pz+=fz*pspeed
+ -- move player along forward vector
+ px+=p_fwd[1]*pspeed
+ py+=p_fwd[2]*pspeed
+ pz+=p_fwd[3]*pspeed
 
- -- smooth follow camera
- local ox,oy,oz=rot3d(0,4,-22,prx,pry,prz)
- tcx=px+ox
- tcy=py+oy
- tcz=pz+oz
- tcrx,tcry,tcrz=prx,pry,prz
+ -- camera follows behind player
+ local cam_dist=22
+ local cam_up=4
+ local tcx=px-p_fwd[1]*cam_dist+p_up[1]*cam_up
+ local tcy=py-p_fwd[2]*cam_dist+p_up[2]*cam_up
+ local tcz=pz-p_fwd[3]*cam_dist+p_up[3]*cam_up
 
- -- lerp camera to target
- local cl=0.08
+ -- lerp camera position
+ local cl=0.1
  cx+=(tcx-cx)*cl
  cy+=(tcy-cy)*cl
  cz+=(tcz-cz)*cl
 
- -- lerp rotation (handle wrap-around)
- crx+=(tcrx-crx)*cl
- cry+=(tcry-cry)*cl
- crz+=(tcrz-crz)*cl
+ -- lerp camera orientation
+ c_fwd[1]+=(p_fwd[1]-c_fwd[1])*cl
+ c_fwd[2]+=(p_fwd[2]-c_fwd[2])*cl
+ c_fwd[3]+=(p_fwd[3]-c_fwd[3])*cl
+ c_rgt[1]+=(p_rgt[1]-c_rgt[1])*cl
+ c_rgt[2]+=(p_rgt[2]-c_rgt[2])*cl
+ c_rgt[3]+=(p_rgt[3]-c_rgt[3])*cl
+ c_up[1]+=(p_up[1]-c_up[1])*cl
+ c_up[2]+=(p_up[2]-c_up[2])*cl
+ c_up[3]+=(p_up[3]-c_up[3])*cl
 
  -- ui clicks
  update_ui()
@@ -357,6 +419,19 @@ function update_enemies()
  end
 end
 
+function fire_player_bullet()
+ local spd=3
+ add(bullets,{
+  x=px+p_fwd[1]*5,
+  y=py+p_fwd[2]*5,
+  z=pz+p_fwd[3]*5,
+  vx=p_fwd[1]*spd+p_fwd[1]*pspeed,
+  vy=p_fwd[2]*spd+p_fwd[2]*pspeed,
+  vz=p_fwd[3]*spd+p_fwd[3]*pspeed,
+  plr=true,life=120
+ })
+end
+
 function fire_bullet(x,y,z,rx,ry,rz,plr)
  local fx,fy,fz=rot3d(0,0,1,rx,ry,rz)
  local spd=plr and 3 or 1.5
@@ -463,7 +538,7 @@ function draw_play()
  draw_stars()
 
  local faces={}
- add_ship(faces,px,py,pz,prx,pry,prz,ship_v,ship_f)
+ add_player_ship(faces,ship_v,ship_f)
 
  for e in all(enemies) do
   add_ship(faces,e.x,e.y,e.z,e.rx,e.ry,e.rz,enemy_v,enemy_f)
@@ -494,27 +569,46 @@ function draw_stars()
   while ry<-128 do ry+=256 end
   while ry>128 do ry-=256 end
 
-  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
+  local vx,vy,vz=to_cam_space(rx+cx,ry+cy,rz+cz)
 
-  if rz>1 then
-   local sx,sy=proj(rx,ry,rz)
+  if vz>1 then
+   local sx,sy=proj(vx,vy,vz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    pset(sx,sy,rz<50 and 7 or 6)
+    pset(sx,sy,vz<50 and 7 or 6)
    end
   end
  end
 end
 
+-- draw player ship using orientation vectors
+function add_player_ship(faces,verts,fcs)
+ local tv={}
+ for i,v in pairs(verts) do
+  local x,y,z=orient_point(v[1],v[2],v[3],p_fwd,p_rgt,p_up)
+  x+=px
+  y+=py
+  z+=pz
+  x,y,z=to_cam_space(x,y,z)
+  tv[i]={x,y,z}
+ end
+ add_faces(faces,tv,fcs)
+end
+
+-- draw enemy ship using euler angles
 function add_ship(faces,sx,sy,sz,rx,ry,rz,verts,fcs)
  local tv={}
  for i,v in pairs(verts) do
   local x,y,z=rot3d(v[1],v[2],v[3],rx,ry,rz)
-  x+=sx-cx
-  y+=sy-cy
-  z+=sz-cz
-  x,y,z=rot3d_inv(x,y,z,crx,cry,crz)
+  x+=sx
+  y+=sy
+  z+=sz
+  x,y,z=to_cam_space(x,y,z)
   tv[i]={x,y,z}
  end
+ add_faces(faces,tv,fcs)
+end
+
+function add_faces(faces,tv,fcs)
 
  for f in all(fcs) do
   local v1=tv[f[1]]
@@ -595,14 +689,11 @@ end
 
 function draw_bullets_()
  for b in all(bullets) do
-  local rx=b.x-cx
-  local ry=b.y-cy
-  local rz=b.z-cz
-  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
-  if rz>1 then
-   local sx,sy=proj(rx,ry,rz)
+  local vx,vy,vz=to_cam_space(b.x,b.y,b.z)
+  if vz>1 then
+   local sx,sy=proj(vx,vy,vz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    circfill(sx,sy,max(1,4/rz),b.plr and 11 or 8)
+    circfill(sx,sy,max(1,4/vz),b.plr and 11 or 8)
    end
   end
  end
@@ -610,12 +701,9 @@ end
 
 function draw_parts()
  for p in all(parts) do
-  local rx=p[1]-cx
-  local ry=p[2]-cy
-  local rz=p[3]-cz
-  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
-  if rz>1 then
-   local sx,sy=proj(rx,ry,rz)
+  local vx,vy,vz=to_cam_space(p[1],p[2],p[3])
+  if vz>1 then
+   local sx,sy=proj(vx,vy,vz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
     pset(sx,sy,p[8])
    end
@@ -625,13 +713,10 @@ end
 
 function draw_expls()
  for e in all(expls) do
-  local rx=e[1]-cx
-  local ry=e[2]-cy
-  local rz=e[3]-cz
-  rx,ry,rz=rot3d_inv(rx,ry,rz,crx,cry,crz)
-  if rz>1 then
-   local sx,sy=proj(rx,ry,rz)
-   local sz=e[4]*5/rz
+  local vx,vy,vz=to_cam_space(e[1],e[2],e[3])
+  if vz>1 then
+   local sx,sy=proj(vx,vy,vz)
+   local sz=e[4]*5/vz
    circfill(sx,sy,sz,10)
    circfill(sx,sy,sz*0.7,9)
    circfill(sx,sy,sz*0.4,8)
