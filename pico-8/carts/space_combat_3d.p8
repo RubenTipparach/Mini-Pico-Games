@@ -691,10 +691,8 @@ function update_bullets()
    del(bullets,b)
   elseif b.plr then
    for e in all(enemies) do
-    local dx=b.x-e.x
-    local dy=b.y-e.y
-    local dz=b.z-e.z
-    if dx*dx+dy*dy+dz*dz<20 then -- ~4.5 unit radius for precise hits
+    local d=v_len({b.x-e.x,b.y-e.y,b.z-e.z})
+    if d<5 then -- 5 unit radius collision sphere
      e.hp-=10
      -- trigger evasion when hit
      e.evade=20+rnd(15)
@@ -713,10 +711,8 @@ function update_bullets()
     end
    end
   else
-   local dx=b.x-px
-   local dy=b.y-py
-   local dz=b.z-pz
-   if dx*dx+dy*dy+dz*dz<36 then
+   local d=v_len({b.x-px,b.y-py,b.z-pz})
+   if d<6 then -- 6 unit radius for player
     -- damage shields first, then health
     shield_recharge=0 -- reset recharge timer
     hit_flash=10 -- flash red when hit
