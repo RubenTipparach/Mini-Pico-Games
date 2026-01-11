@@ -681,7 +681,7 @@ function update_bullets()
     local dx=b.x-e.x
     local dy=b.y-e.y
     local dz=b.z-e.z
-    if dx*dx+dy*dy+dz*dz<36 then -- 6 unit radius for tighter hit detection
+    if dx*dx+dy*dy+dz*dz<20 then -- ~4.5 unit radius for precise hits
      e.hp-=10
      -- trigger evasion when hit
      e.evade=20+rnd(15)
