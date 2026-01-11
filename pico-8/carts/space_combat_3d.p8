@@ -57,6 +57,7 @@ cfg={
  ai_evade_shots=10,      -- enter evade after this many shots
  ai_evade_duration=90,   -- how long to evade (frames)
  ai_evade_random=30,     -- random variance
+ ai_evade_close_dist=35, -- evade if closer than this
 }
 
 -- game state
@@ -739,8 +740,18 @@ function update_enemies()
   -- don't interrupt evade state - let it complete
   e.state_timer+=1
   if e.state!="evade" then
+   -- force evade if too close to player
+   if dist<cfg.ai_evade_close_dist and e.state=="attack" then
+    -- turn away sharply
+    e.ry+=0.4+rnd(0.2)*(rnd(1)<0.5 and 1 or -1)
+    while e.ry>=1 do e.ry-=1 end
+    while e.ry<0 do e.ry+=1 end
+    e.evade_timer=cfg.ai_evade_duration+flr(rnd(cfg.ai_evade_random))
+    e.evade_yaw=rnd(1)<0.5 and 1 or -1
+    e.state="evade"
+    e.burst=0
    -- force pursuit if >300m OR pursuit timer expired (10-20 sec = 300-600 frames)
-   if dist>300 or e.state_timer>300+rnd(300) then
+   elseif dist>300 or e.state_timer>300+rnd(300) then
     if e.state!="pursuit" then
      e.state="pursuit"
      e.state_timer=0
