@@ -163,11 +163,11 @@ function start_game()
  prx,pry,prz=0,0,0
  pspeed=0
  pfire=0
- throttle=0
+ throttle=0.3  -- start with some speed
  score=0
  health=100
  wave=1
- spawn_t=60
+ spawn_t=0
  enemies={}
  bullets={}
  parts={}
@@ -177,6 +177,10 @@ function start_game()
  crx,cry,crz=0,0,0
  tcx,tcy,tcz=0,4,-22
  tcrx,tcry,tcrz=0,0,0
+ -- spawn initial enemies
+ for i=1,3 do
+  spawn_enemy()
+ end
 end
 
 function update_play()
@@ -193,14 +197,14 @@ function update_play()
   if btn(3) then
    throttle=max(throttle-0.03,0)
   end
-  if btn(0) then prz+=ts end
-  if btn(1) then prz-=ts end
+  if btn(0) then prz-=ts end
+  if btn(1) then prz+=ts end
  else
   -- regular mode: up/down = pitch, left/right = yaw
-  if btn(2) then prx-=ts end
-  if btn(3) then prx+=ts end
-  if btn(0) then pry+=ts end
-  if btn(1) then pry-=ts end
+  if btn(2) then prx+=ts end  -- up = pitch up
+  if btn(3) then prx-=ts end  -- down = pitch down
+  if btn(0) then pry-=ts end  -- left = yaw left
+  if btn(1) then pry+=ts end  -- right = yaw right
  end
 
  -- smooth speed
