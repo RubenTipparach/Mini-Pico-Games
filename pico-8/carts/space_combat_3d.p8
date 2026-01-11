@@ -32,6 +32,11 @@ roll_mode=false
 throttle=0
 mx,my,mb,mp=64,64,false,false
 
+-- targeting
+target=nil
+last_b_tap=0
+tap_window=15
+
 -- tables
 stars={}
 enemies={}
@@ -137,6 +142,26 @@ function rot_axis(v,axis,a)
  }
 end
 
+-- re-orthonormalize vectors (gram-schmidt)
+function orthonorm()
+ -- normalize forward
+ local l=sqrt(p_fwd[1]^2+p_fwd[2]^2+p_fwd[3]^2)
+ p_fwd[1]/=l p_fwd[2]/=l p_fwd[3]/=l
+
+ -- right = right - (right.fwd)*fwd
+ local d=p_rgt[1]*p_fwd[1]+p_rgt[2]*p_fwd[2]+p_rgt[3]*p_fwd[3]
+ p_rgt[1]-=d*p_fwd[1]
+ p_rgt[2]-=d*p_fwd[2]
+ p_rgt[3]-=d*p_fwd[3]
+ l=sqrt(p_rgt[1]^2+p_rgt[2]^2+p_rgt[3]^2)
+ p_rgt[1]/=l p_rgt[2]/=l p_rgt[3]/=l
+
+ -- up = fwd x rgt
+ p_up[1]=p_fwd[2]*p_rgt[3]-p_fwd[3]*p_rgt[2]
+ p_up[2]=p_fwd[3]*p_rgt[1]-p_fwd[1]*p_rgt[3]
+ p_up[3]=p_fwd[1]*p_rgt[2]-p_fwd[2]*p_rgt[1]
+end
+
 -- transform point by orientation matrix (fwd,rgt,up)
 function orient_point(x,y,z,fwd,rgt,up)
  return
@@ -162,15 +187,26 @@ function proj(x,y,z)
  return 64+x*90/z,64-y*90/z,z
 end
 
+-- celestial objects
+sun_dir={0.6,0.3,0.7}
+planet_pos={-500,200,800}
+planet_r=80
+
 function _init()
  poke(0x5f2d,1)
- for i=1,80 do
+ -- more stars!
+ for i=1,200 do
   add(stars,{
-   rnd(256)-128,
-   rnd(256)-128,
-   rnd(200)+50
+   rnd(400)-200,
+   rnd(400)-200,
+   rnd(300)+50
   })
  end
+ -- normalize sun direction
+ local l=sqrt(sun_dir[1]^2+sun_dir[2]^2+sun_dir[3]^2)
+ sun_dir[1]/=l
+ sun_dir[2]/=l
+ sun_dir[3]/=l
 end
 
 function _update60()
@@ -206,6 +242,8 @@ function start_game()
  bullets={}
  parts={}
  expls={}
+ target=nil
+ last_b_tap=-99
  -- reset player orientation
  p_fwd={0,0,1}
  p_rgt={1,0,0}
@@ -264,8 +302,19 @@ function update_play()
   end
  end
 
+ -- re-orthonormalize to prevent error accumulation
+ orthonorm()
+
  -- smooth speed
  pspeed+=(throttle*1.5-pspeed)*0.08
+
+ -- double-tap B to cycle targets
+ if btnp(4) then
+  if t()-last_b_tap<0.25 then
+   cycle_target()
+  end
+  last_b_tap=t()
+ end
 
  -- A button (btn 5) = fire
  pfire=max(0,pfire-1)
@@ -374,6 +423,28 @@ function spawn_enemy()
   fire=rnd(60)+30,
   ai=rnd(30)
  })
+end
+
+function cycle_target()
+ if #enemies==0 then
+  target=nil
+  return
+ end
+
+ -- find current target index
+ local cur_idx=0
+ for i,e in pairs(enemies) do
+  if e==target then
+   cur_idx=i
+   break
+  end
+ end
+
+ -- cycle to next
+ cur_idx+=1
+ if cur_idx>#enemies then cur_idx=1 end
+ target=enemies[cur_idx]
+ sfx(0)
 end
 
 function update_enemies()
@@ -557,24 +628,75 @@ function draw_play()
 end
 
 function draw_stars()
+ -- draw sun (always in same direction, very far)
+ local sun_dist=1000
+ local sun_wx=sun_dir[1]*sun_dist
+ local sun_wy=sun_dir[2]*sun_dist
+ local sun_wz=sun_dir[3]*sun_dist
+ local svx,svy,svz=to_cam_space(sun_wx,sun_wy,sun_wz)
+ if svz>1 then
+  local ssx,ssy=proj(svx,svy,svz)
+  if ssx>=-20 and ssx<148 and ssy>=-20 and ssy<148 then
+   -- sun glow
+   circfill(ssx,ssy,16,10)
+   circfill(ssx,ssy,12,9)
+   circfill(ssx,ssy,8,10)
+   circfill(ssx,ssy,5,7)
+  end
+ end
+
+ -- draw planet (fixed position, wraps)
+ local prx=planet_pos[1]-cx
+ local pry=planet_pos[2]-cy
+ local prz=planet_pos[3]-cz
+ -- wrap planet around
+ while prz<-400 do prz+=1600 end
+ while prz>1200 do prz-=1600 end
+ while prx<-800 do prx+=1600 end
+ while prx>800 do prx-=1600 end
+
+ local pvx,pvy,pvz=to_cam_space(prx+cx,pry+cy,prz+cz)
+ if pvz>10 then
+  local psx,psy=proj(pvx,pvy,pvz)
+  local pr=planet_r*90/pvz
+  if psx>-pr and psx<128+pr and psy>-pr and psy<128+pr then
+   -- planet body (blue-green)
+   circfill(psx,psy,pr,1)
+   circfill(psx,psy,pr*0.95,12)
+   -- atmosphere
+   circ(psx,psy,pr,6)
+   -- land masses
+   if pr>5 then
+    circfill(psx-pr*0.3,psy-pr*0.2,pr*0.3,3)
+    circfill(psx+pr*0.2,psy+pr*0.3,pr*0.25,3)
+    circfill(psx-pr*0.1,psy+pr*0.4,pr*0.15,11)
+   end
+  end
+ end
+
+ -- draw stars
  for s in all(stars) do
   local rx=s[1]-cx
   local ry=s[2]-cy
   local rz=s[3]-cz
 
-  while rz<0 do rz+=200 end
-  while rz>200 do rz-=200 end
-  while rx<-128 do rx+=256 end
-  while rx>128 do rx-=256 end
-  while ry<-128 do ry+=256 end
-  while ry>128 do ry-=256 end
+  while rz<0 do rz+=300 end
+  while rz>300 do rz-=300 end
+  while rx<-200 do rx+=400 end
+  while rx>200 do rx-=400 end
+  while ry<-200 do ry+=400 end
+  while ry>200 do ry-=400 end
 
   local vx,vy,vz=to_cam_space(rx+cx,ry+cy,rz+cz)
 
   if vz>1 then
    local sx,sy=proj(vx,vy,vz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    pset(sx,sy,vz<50 and 7 or 6)
+    -- star color varies by depth
+    local col=7
+    if vz>150 then col=5
+    elseif vz>80 then col=6 end
+    pset(sx,sy,col)
    end
   end
  end
@@ -742,6 +864,9 @@ function draw_hud()
  line(50,64,58,64,3)
  line(70,64,78,64,3)
 
+ -- wing commander style targeting
+ draw_target_brackets()
+
  -- throttle
  rectfill(116,25,120,85,1)
  rect(115,24,121,86,5)
@@ -756,8 +881,95 @@ function draw_hud()
  rect(5,92,38,105,7)
  print(roll_mode and "roll" or "yaw",14,96,0)
 
+ -- target info panel (bottom left)
+ if target then
+  rectfill(4,110,50,124,1)
+  rect(4,110,50,124,11)
+  print("tgt",6,112,11)
+  local dx=target.x-px
+  local dy=target.y-py
+  local dz=target.z-pz
+  local dist=sqrt(dx*dx+dy*dy+dz*dz)
+  print(flr(dist).."m",6,118,7)
+ end
+
  -- mouse
  pset(mx,my,7)
+end
+
+function draw_target_brackets()
+ -- validate target still exists
+ if target then
+  local found=false
+  for e in all(enemies) do
+   if e==target then found=true break end
+  end
+  if not found then target=nil end
+ end
+
+ -- auto-target nearest if no target
+ if not target and #enemies>0 then
+  local best_d=99999
+  for e in all(enemies) do
+   local dx=e.x-px
+   local dy=e.y-py
+   local dz=e.z-pz
+   local d=dx*dx+dy*dy+dz*dz
+   if d<best_d then
+    best_d=d
+    target=e
+   end
+  end
+ end
+
+ -- draw brackets on all enemies
+ for e in all(enemies) do
+  local vx,vy,vz=to_cam_space(e.x,e.y,e.z)
+  if vz>1 then
+   local sx,sy=proj(vx,vy,vz)
+   local sz=max(6,40/vz)
+   local is_target=(e==target)
+   local col=is_target and 11 or 8
+
+   -- corner brackets (wing commander style)
+   -- top-left
+   line(sx-sz,sy-sz,sx-sz,sy-sz+sz/2,col)
+   line(sx-sz,sy-sz,sx-sz+sz/2,sy-sz,col)
+   -- top-right
+   line(sx+sz,sy-sz,sx+sz,sy-sz+sz/2,col)
+   line(sx+sz,sy-sz,sx+sz-sz/2,sy-sz,col)
+   -- bottom-left
+   line(sx-sz,sy+sz,sx-sz,sy+sz-sz/2,col)
+   line(sx-sz,sy+sz,sx-sz+sz/2,sy+sz,col)
+   -- bottom-right
+   line(sx+sz,sy+sz,sx+sz,sy+sz-sz/2,col)
+   line(sx+sz,sy+sz,sx+sz-sz/2,sy+sz,col)
+
+   -- current target gets extra indicator
+   if is_target then
+    -- diamond marker above
+    local dy=-sz-5
+    line(sx,sy+dy-3,sx-3,sy+dy,11)
+    line(sx,sy+dy-3,sx+3,sy+dy,11)
+    line(sx-3,sy+dy,sx,sy+dy+3,11)
+    line(sx+3,sy+dy,sx,sy+dy+3,11)
+   end
+  else
+   -- off-screen target indicator (arrow at edge)
+   if e==target then
+    local dx=e.x-px
+    local dy=e.y-py
+    local dz=e.z-pz
+    -- project direction to screen
+    local ang=atan2(vx,-vz)
+    local ex=64+cos(ang)*50
+    local ey=64+sin(ang)*50
+    -- draw arrow
+    circfill(ex,ey,3,8)
+    print(">",ex-2,ey-3,11)
+   end
+  end
+ end
 end
 
 function draw_dead()
