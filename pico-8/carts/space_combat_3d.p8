@@ -1015,6 +1015,19 @@ function draw_bullets_()
    local sx,sy=proj(vx,vy,vz)
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
     circfill(sx,sy,max(1,4/vz),b.plr and 11 or 8)
+    -- debug: draw line to nearest enemy for player bullets
+    if b.plr then
+     for e in all(enemies) do
+      local evx,evy,evz=to_cam_space(e.x,e.y,e.z)
+      if evz>1 then
+       local esx,esy=proj(evx,evy,evz)
+       local d=v_len({b.x-e.x,b.y-e.y,b.z-e.z})
+       if d<30 then
+        line(sx,sy,esx,esy,d<5 and 8 or 5)
+       end
+      end
+     end
+    end
    end
   end
  end
