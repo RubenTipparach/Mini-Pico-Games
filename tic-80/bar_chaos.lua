@@ -1047,7 +1047,7 @@ function draw_bartender()
     end
 
     -- Draw shadow
-    ellipse(bx + 4, by + 12, 6, 2, C.BLACK)
+    elli(bx + 4, by + 12, 6, 2, C.BLACK)
 
     -- Draw bartender sprite
     spr(sprite_id, bx, by, 0)
@@ -1123,7 +1123,7 @@ function draw_customers()
         end
 
         -- Draw shadow
-        ellipse(cx + 4, cy + 12, 5, 2, C.BLACK)
+        elli(cx + 4, cy + 12, 5, 2, C.BLACK)
 
         -- Draw customer sprite
         spr(c.type.sprite, cx, cy + bob, 0, 1, flip)
@@ -1537,7 +1537,7 @@ function draw_splash()
         local flip = c.dir < 0 and 1 or 0
 
         -- Shadow
-        ellipse(c.x + 4, c.y + 10, 4, 2, C.BLACK)
+        elli(c.x + 4, c.y + 10, 4, 2, C.BLACK)
 
         -- Customer sprite
         spr(c.sprite, c.x, c.y + bob, 0, 1, flip)
