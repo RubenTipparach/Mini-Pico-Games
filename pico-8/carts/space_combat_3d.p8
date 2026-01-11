@@ -11,6 +11,7 @@ health=100
 shield=100
 shield_max=100
 shield_recharge=0
+hit_flash=0
 wave=1
 spawn_t=60
 wave_enemies=0
@@ -270,6 +271,7 @@ function start_game()
  health=100
  shield=100
  shield_recharge=0
+ hit_flash=0
  wave=1
  wave_enemies=1
  spawn_t=0
@@ -329,14 +331,14 @@ function update_play()
    p_up=rot_axis(p_up,p_fwd,ts)
   end
  else
-  -- regular mode: pitch around right, yaw around up
+  -- regular mode: pitch around right (inverted), yaw around up
   if btn(2) then
-   p_fwd=rot_axis(p_fwd,p_rgt,ts)
-   p_up=rot_axis(p_up,p_rgt,ts)
-  end
-  if btn(3) then
    p_fwd=rot_axis(p_fwd,p_rgt,-ts)
    p_up=rot_axis(p_up,p_rgt,-ts)
+  end
+  if btn(3) then
+   p_fwd=rot_axis(p_fwd,p_rgt,ts)
+   p_up=rot_axis(p_up,p_rgt,ts)
   end
   if btn(0) then
    p_fwd=rot_axis(p_fwd,p_up,ts)
@@ -451,6 +453,11 @@ function update_play()
   end
  end
 
+ -- decrement hit flash timer
+ if hit_flash>0 then
+  hit_flash-=1
+ end
+
  -- wave progression
  if #enemies==0 then
   wave+=1
@@ -482,26 +489,28 @@ function spawn_enemy(etype)
   z=rnd(100)+80+pz,
   rx=0,ry=0.5,rz=0,
   etype=etype,
-  ai=rnd(40)+20
+  ai=rnd(40)+20,
+  evade=0,
+  evade_dir=0
  }
  -- type-specific stats
  if etype=="normal" then
   e.hp=20
-  e.spd=0.4
+  e.spd=0.6
   e.fire=rnd(120)+90
   e.acc=0.15
   e.v=enemy_v
   e.f=enemy_f
  elseif etype=="heavy" then
   e.hp=50
-  e.spd=0.25
+  e.spd=0.4
   e.fire=rnd(150)+120
   e.acc=0.1
   e.v=heavy_v
   e.f=heavy_f
  elseif etype=="fast" then
   e.hp=12
-  e.spd=0.7
+  e.spd=0.9
   e.fire=rnd(100)+80
   e.acc=0.12
   e.v=fast_v
@@ -511,34 +520,33 @@ function spawn_enemy(etype)
 end
 
 function spawn_wave()
- -- wave 1: 1 normal
- -- wave 2: 2 normal
- -- wave 3: 2 normal + 1 fast
- -- wave 4: 2 normal + 1 heavy
- -- wave 5+: mix
- local count=min(wave,4)
- wave_enemies=count
-
- if wave==1 then
-  spawn_enemy("normal")
- elseif wave==2 then
-  spawn_enemy("normal")
+ -- wave is already incremented when this is called
+ -- wave 2: 1 normal (after beating wave 1)
+ -- wave 3: 2 normal
+ -- wave 4: 2 normal + 1 fast
+ -- wave 5: 1 normal + 1 heavy + 1 fast
+ -- wave 6+: mix up to 4
+ if wave==2 then
   spawn_enemy("normal")
  elseif wave==3 then
   spawn_enemy("normal")
   spawn_enemy("normal")
-  spawn_enemy("fast")
  elseif wave==4 then
+  spawn_enemy("normal")
+  spawn_enemy("normal")
+  spawn_enemy("fast")
+ elseif wave==5 then
   spawn_enemy("normal")
   spawn_enemy("heavy")
   spawn_enemy("fast")
  else
-  -- wave 5+: random mix
-  for i=1,min(wave,5) do
+  -- wave 6+: random mix, max 4
+  local count=min(wave-2,4)
+  for i=1,count do
    local r=rnd(10)
-   if r<5 then
+   if r<4 then
     spawn_enemy("normal")
-   elseif r<8 then
+   elseif r<7 then
     spawn_enemy("fast")
    else
     spawn_enemy("heavy")
@@ -587,9 +595,22 @@ function update_enemies()
   -- use enemy speed
   local spd=e.spd or 0.4
   local fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
-  e.x+=fx*spd
-  e.y+=fy*spd
-  e.z+=fz*spd
+
+  -- evasion behavior when hit
+  if e.evade>0 then
+   e.evade-=1
+   -- calculate right vector for strafing
+   local ex,ey,ez=rot3d(1,0,0,e.rx,e.ry,e.rz)
+   -- strafe sideways
+   local estr=e.evade_dir*spd*1.5
+   e.x+=ex*estr+fx*spd*0.3
+   e.y+=ey*estr+fy*spd*0.3
+   e.z+=ez*estr+fz*spd*0.3
+  else
+   e.x+=fx*spd
+   e.y+=fy*spd
+   e.z+=fz*spd
+  end
 
   e.fire-=1
   if e.fire<=0 then
@@ -660,8 +681,11 @@ function update_bullets()
     local dx=b.x-e.x
     local dy=b.y-e.y
     local dz=b.z-e.z
-    if dx*dx+dy*dy+dz*dz<64 then
+    if dx*dx+dy*dy+dz*dz<36 then -- 6 unit radius for tighter hit detection
      e.hp-=10
+     -- trigger evasion when hit
+     e.evade=20+rnd(15)
+     e.evade_dir=rnd(1)<0.5 and -1 or 1
      add_parts(b.x,b.y,b.z,5,9)
      del(bullets,b)
      sfx(2)
@@ -670,7 +694,7 @@ function update_bullets()
       score+=100
       del(enemies,e)
       sfx(3)
-      if #enemies==0 then wave+=1 end
+      -- wave progression handled in update_play()
      end
      break
     end
@@ -682,6 +706,7 @@ function update_bullets()
    if dx*dx+dy*dy+dz*dz<36 then
     -- damage shields first, then health
     shield_recharge=0 -- reset recharge timer
+    hit_flash=10 -- flash red when hit
     if shield>0 then
      shield=max(0,shield-15)
      add_parts(px,py,pz,4,12) -- blue shield sparks
@@ -847,7 +872,38 @@ function add_player_ship(faces,verts,fcs)
   x,y,z=to_cam_space(x,y,z)
   tv[i]={x,y,z}
  end
- add_faces(faces,tv,fcs)
+ -- flash red when hit
+ if hit_flash>0 then
+  add_faces_flash(faces,tv,fcs)
+ else
+  add_faces(faces,tv,fcs)
+ end
+end
+
+-- add faces with red flash (for damage)
+function add_faces_flash(faces,tv,fcs)
+ for f in all(fcs) do
+  local v1=tv[f[1]]
+  local v2=tv[f[2]]
+  local v3=tv[f[3]]
+
+  if v1[3]>1 and v2[3]>1 and v3[3]>1 then
+   local e1=v_sub(v2,v1)
+   local e2=v_sub(v3,v1)
+   local n=v_norm(v_cross(e1,e2))
+
+   local ctr={(v1[1]+v2[1]+v3[1])/3,(v1[2]+v2[2]+v3[2])/3,(v1[3]+v2[3]+v3[3])/3}
+
+   if v_dot(n,v_norm(ctr))<0 then
+    local p1x,p1y=proj(v1[1],v1[2],v1[3])
+    local p2x,p2y=proj(v2[1],v2[2],v2[3])
+    local p3x,p3y=proj(v3[1],v3[2],v3[3])
+
+    -- flash red color (8)
+    add(faces,{p1x,p1y,p2x,p2y,p3x,p3y,8,ctr[3]})
+   end
+  end
+ end
 end
 
 -- draw enemy ship using euler angles
