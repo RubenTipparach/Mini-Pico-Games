@@ -55,8 +55,8 @@ cfg={
  ai_reaim_random=8,
  -- shot-based evade mode
  ai_evade_shots=10,      -- enter evade after this many shots
- ai_evade_duration=90,   -- how long to evade (frames)
- ai_evade_random=30,     -- random variance
+ ai_evade_duration=1800, -- 30 sec cooldown (frames @60fps)
+ ai_evade_random=300,    -- 0-5 sec random variance
  ai_evade_close_dist=35, -- evade if closer than this
 }
 
@@ -788,8 +788,8 @@ function update_enemies()
    -- EVADE: fly away from player aggressively after 10 shots
    e.evade_timer=(e.evade_timer or 0)-1
 
-   -- slight weaving motion while evading
-   e.ry+=e.evade_yaw*turn*0.5
+   -- gentle weaving motion while evading (fixed small turn rate)
+   e.ry+=e.evade_yaw*0.003
    while e.ry>=1 do e.ry-=1 end
    while e.ry<0 do e.ry+=1 end
 
