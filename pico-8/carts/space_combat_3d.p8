@@ -426,6 +426,8 @@ function update_play()
   else
    rot_yaw*=rd
   end
+  -- damp roll when not in alt mode
+  rot_roll*=rd
  end
 
  -- apply rotational velocities
@@ -1433,7 +1435,7 @@ function draw_hud()
 
  -- score/wave
  print("score:"..score,60,5,7)
- print("wave:"..wave,90,115,6)
+ print("wave:"..wave,93,115,6)
 
  -- reticle
  circ(64,64,10,3)
@@ -1452,9 +1454,12 @@ function draw_hud()
  rectfill(116,fy,120,85,11)
  rectfill(113,fy-2,123,fy+2,7)
  print("thr",111,88,5)
+ -- speed indicator (show actual speed in m/s)
+ local spd_ms=flr(pspeed*60) -- convert to m/s
+ print(spd_ms.."m/s",105,95,6)
  -- match speed indicator
  if match_speed then
-  print("mtch",109,95,11)
+  print("mtch",109,102,11)
  end
 
  -- radar (bottom left)
@@ -1479,6 +1484,15 @@ function draw_hud()
    rectfill(65,112,65+ehp,116,hcol)
   end
   rect(64,111,88,117,7)
+ end
+
+ -- button prompts when holding Z
+ if btn(4) then
+  rectfill(44,28,84,52,1)
+  rect(44,28,84,52,6)
+  print("\139\145:speed",47,31,11)
+  print("\139+\145:match",47,38,11)
+  print("\131\145:roll",47,45,6)
  end
 end
 
