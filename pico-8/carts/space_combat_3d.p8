@@ -6,28 +6,23 @@ __lua__
 
 -- config (tweak these!)
 cfg={
- start_hp=100,  -- used for health and shield
+ start_hp=100,  -- health and shield
  shield_regen_delay=120,shield_regen_rate=0.1,
  rot_accel=0.001,rot_max=0.04,rot_damp=0.85,
  throttle_rate=0.03,max_speed=1.5,
  fire_rate=8,bullet_spd=3,bullet_life=120,enemy_bullet_life=180,
  enemy_hit_r=10,player_hit_r=4,
  bullet_dmg=1,shield_dmg=15,hull_dmg=10,
- -- enemy types
- enemy_normal={hp=20,spd=0.6,fire=20,acc=0.15},
- enemy_heavy={hp=50,spd=0.4,fire=60,acc=0.1},
- enemy_fast={hp=12,spd=0.9,fire=80,acc=0.12},
- -- frigate (capital ship)
- enemy_frigate={hp=200,spd=0.2,fire=40,acc=0.03},
- frigate_subsys_hp=25,  -- hp per subsystem
- frigate_weak_mult=4,
- -- evasion
- evade_hit_threshold=3,
- evade_duration=20,
- -- enemy AI (shortened keys)
- ai_face=0.5,ai_refire=10,ai_refire_r=8,
- ai_burst=4,ai_burst_r=2,ai_break=8,ai_break_r=5,
- ai_evade_n=10,ai_evade_t=1800,ai_evade_r=300,ai_evade_d=35,
+ frigate_subsys_hp=25,frigate_weak_mult=4,
+ -- enemy types: {hp, spd, fire_delay, turn_acc}
+ --              [1]  [2]    [3]         [4]
+ e_normal= {20,  0.6,  20,  0.15},
+ e_heavy=  {50,  0.4,  60,  0.1},
+ e_fast=   {12,  0.9,  80,  0.12},
+ e_frigate={200, 0.2,  40,  0.03},
+ -- ai: {face, refire, refire_r, burst, burst_r, break, break_r, evade_n, evade_t, evade_r, evade_d}
+ --       [1]    [2]      [3]     [4]     [5]     [6]     [7]      [8]      [9]      [10]     [11]
+ ai={0.5, 10, 8, 4, 2, 8, 5, 10, 1800, 300, 35},
 }
 
 -- game state
@@ -210,6 +205,9 @@ function norm_ang(a)
  while a<0 do a+=1 end
  return a
 end
+
+-- helper: random sign (1 or -1)
+function rsgn() return rnd(1)<0.5 and 1 or -1 end
 
 -- helper: get target world position (works for enemies and subsystems)
 function get_target_pos(t)
@@ -500,6 +498,30 @@ function update_play()
  py+=p_fwd[2]*pspeed
  pz+=p_fwd[3]*pspeed
 
+ -- ship collision detection
+ for e in all(enemies) do
+  local dx,dy,dz=(e.x-px)/16,(e.y-py)/16,(e.z-pz)/16
+  local d=sqrt(dx*dx+dy*dy+dz*dz)*16
+  local hit_r=e.is_frigate and 25 or 12
+  if d<hit_r and d>0 then
+   -- apply damage
+   shield_recharge=0
+   hit_flash=15
+   if shield>0 then
+    shield=max(0,shield-20)
+    add_parts(px,py,pz,6,12)
+   else
+    health-=20
+    add_parts(px,py,pz,10,8)
+   end
+   sfx(2)
+   -- bounce apart
+   local nx,ny,nz=(px-e.x)/d,(py-e.y)/d,(pz-e.z)/d
+   px+=nx*6 py+=ny*6 pz+=nz*6
+   e.x-=nx*2 e.y-=ny*2 e.z-=nz*2
+  end
+ end
+
  -- camera follows behind player
  local cam_dist=22
  local cam_up=4
@@ -604,12 +626,12 @@ function update_ui()
  end
 end
 
--- enemy type lookup table
+-- enemy type lookup: c={hp,spd,fire,acc}
 enemy_types={
- normal={c=cfg.enemy_normal,v=enemy_v,f=enemy_f},
- heavy={c=cfg.enemy_heavy,v=heavy_v,f=heavy_f},
- fast={c=cfg.enemy_fast,v=fast_v,f=fast_f},
- frigate={c=cfg.enemy_frigate,v=frigate_v,f=frigate_f}
+ normal={c=cfg.e_normal,v=enemy_v,f=enemy_f},
+ heavy={c=cfg.e_heavy,v=heavy_v,f=heavy_f},
+ fast={c=cfg.e_fast,v=fast_v,f=fast_f},
+ frigate={c=cfg.e_frigate,v=frigate_v,f=frigate_f}
 }
 
 function spawn_enemy(etype)
@@ -623,7 +645,7 @@ function spawn_enemy(etype)
   x=ex,y=ey,z=ez,
   rx=-atan2(dy,sqrt(dx*dx+dz*dz)),ry=atan2(dx,dz),rz=0,
   etype=etype,v=et.v,f=et.f,
-  hp=c.hp,max_hp=c.hp,spd=c.spd,fire=rnd(30)+c.fire,acc=c.acc,
+  hp=c[1],max_hp=c[1],spd=c[2],fire=rnd(30)+c[3],acc=c[4],
   ai=0,evade=0,evade_dir=0,breakoff=0,burst=0,total_shots=0
  }
  if etype=="frigate" then
@@ -776,10 +798,10 @@ function update_enemies()
   e.state_timer+=1
   if e.state!="evade" then
    -- force evade if too close to player
-   if dist<cfg.ai_evade_d and e.state=="attack" then
-    e.ry=norm_ang(e.ry+0.4+rnd(0.2)*(rnd(1)<0.5 and 1 or -1))
-    e.evade_timer=cfg.ai_evade_t+flr(rnd(cfg.ai_evade_r))
-    e.evade_yaw=rnd(1)<0.5 and 1 or -1
+   if dist<cfg.ai[11] and e.state=="attack" then
+    e.ry=norm_ang(e.ry+0.4+rnd(0.2)*rsgn())
+    e.evade_timer=cfg.ai[9]+flr(rnd(cfg.ai[10]))
+    e.evade_yaw=rsgn()
     e.state="evade"
     e.burst=0
    -- force pursuit if >300m OR pursuit timer expired (10-20 sec = 300-600 frames)
@@ -859,26 +881,26 @@ function update_enemies()
 
    -- firing: only when facing player
    e.fire-=1
-   if e.fire<=0 and facing>cfg.ai_face then
+   if e.fire<=0 and facing>cfg.ai[1] then
     fire_enemy_bullet(e.x,e.y,e.z,e.rx,e.ry,e.rz)
-    e.fire=cfg.ai_refire+rnd(cfg.ai_refire_r)
+    e.fire=cfg.ai[2]+rnd(cfg.ai[3])
     sfx(1)
     e.burst=(e.burst or 0)+1
     e.total_shots=(e.total_shots or 0)+1
 
     -- check if should enter evade mode (after 10 shots)
-    if e.total_shots>=cfg.ai_evade_n then
+    if e.total_shots>=cfg.ai[8] then
      -- turn away sharply
-     e.ry=norm_ang(e.ry+0.3+rnd(0.2)*(rnd(1)<0.5 and 1 or -1))
-     e.evade_timer=cfg.ai_evade_t+flr(rnd(cfg.ai_evade_r))
-     e.evade_yaw=rnd(1)<0.5 and 1 or -1
+     e.ry=norm_ang(e.ry+0.3+rnd(0.2)*rsgn())
+     e.evade_timer=cfg.ai[9]+flr(rnd(cfg.ai[10]))
+     e.evade_yaw=rsgn()
      e.state="evade"
      e.total_shots=0
      e.burst=0
     -- after burst, break off briefly
-    elseif e.burst>=cfg.ai_burst+flr(rnd(cfg.ai_burst_r)) then
-     e.ry=norm_ang(e.ry+0.25+rnd(0.25)*(rnd(1)<0.5 and 1 or -1))
-     e.breakoff=cfg.ai_break+flr(rnd(cfg.ai_break_r))
+    elseif e.burst>=cfg.ai[4]+flr(rnd(cfg.ai[5])) then
+     e.ry=norm_ang(e.ry+0.25+rnd(0.25)*rsgn())
+     e.breakoff=cfg.ai[6]+flr(rnd(cfg.ai[7]))
      e.state="breakoff"
      e.burst=0
     end
@@ -1016,9 +1038,9 @@ function update_bullets()
       e.hp-=dmg
       e.hits=(e.hits or 0)+1
       -- trigger evasion after taking a few hits (not for frigates)
-      if not e.is_frigate and e.hits>=cfg.evade_hit_threshold+flr(rnd(3)) then
-       e.evade=cfg.evade_duration+rnd(15)
-       e.evade_dir=rnd(1)<0.5 and -1 or 1
+      if not e.is_frigate and e.hits>=3+flr(rnd(3)) then
+       e.evade=20+rnd(15)
+       e.evade_dir=rsgn()
        e.hits=0 -- reset hit counter
       end
       add_parts(b.x,b.y,b.z,8,9)
@@ -1213,7 +1235,8 @@ function add_faces_flash(faces,tv,fcs)
   local v2=tv[f[2]]
   local v3=tv[f[3]]
 
-  if v1[3]>1 and v2[3]>1 and v3[3]>1 then
+  local minz=min(v1[3],min(v2[3],v3[3]))
+  if minz>0.5 then
    local e1=v_sub(v2,v1)
    local e2=v_sub(v3,v1)
    local n=v_norm(v_cross(e1,e2))
@@ -1253,7 +1276,8 @@ function add_faces(faces,tv,fcs)
   local v2=tv[f[2]]
   local v3=tv[f[3]]
 
-  if v1[3]>1 and v2[3]>1 and v3[3]>1 then
+  local minz=min(v1[3],min(v2[3],v3[3]))
+  if minz>0.5 then
    local e1=v_sub(v2,v1)
    local e2=v_sub(v3,v1)
    local n=v_norm(v_cross(e1,e2))
@@ -1274,14 +1298,15 @@ function add_faces(faces,tv,fcs)
  end
 end
 
+-- shade ramps: dark/mid/light for each base color
+shade_r={
+ [1]={0,0,1},[2]={0,1,2},[5]={1,5,6},
+ [6]={5,6,7},[8]={2,8,14},[9]={4,9,10},
+ [11]={3,11,11},[12]={1,12,12},[13]={5,13,6}
+}
 function shade(c,l)
- local r={
-  [1]={0,0,1},[2]={0,1,2},[5]={1,5,6},
-  [6]={5,6,7},[8]={2,8,14},[9]={4,9,10},
-  [11]={3,11,11},[12]={1,12,12},[13]={5,13,6}
- }
- local ramp=r[c] or {c,c,c}
- return ramp[min(flr(l*2.99)+1,3)]
+ local r=shade_r[c] or {c,c,c}
+ return r[min(flr(l*2.99)+1,3)]
 end
 
 function sort_faces(f)
@@ -1521,14 +1546,12 @@ end
 
 -- helper: draw corner brackets
 function draw_brackets(sx,sy,sz,col)
- line(sx-sz,sy-sz,sx-sz,sy-sz+sz/2,col)
- line(sx-sz,sy-sz,sx-sz+sz/2,sy-sz,col)
- line(sx+sz,sy-sz,sx+sz,sy-sz+sz/2,col)
- line(sx+sz,sy-sz,sx+sz-sz/2,sy-sz,col)
- line(sx-sz,sy+sz,sx-sz,sy+sz-sz/2,col)
- line(sx-sz,sy+sz,sx-sz+sz/2,sy+sz,col)
- line(sx+sz,sy+sz,sx+sz,sy+sz-sz/2,col)
- line(sx+sz,sy+sz,sx+sz-sz/2,sy+sz,col)
+ local h=sz/2
+ local l,r,t,b=sx-sz,sx+sz,sy-sz,sy+sz
+ line(l,t,l,t+h,col) line(l,t,l+h,t,col)
+ line(r,t,r,t+h,col) line(r,t,r-h,t,col)
+ line(l,b,l,b-h,col) line(l,b,l+h,b,col)
+ line(r,b,r,b-h,col) line(r,b,r-h,b,col)
 end
 
 function draw_target_brackets()
