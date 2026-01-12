@@ -6,58 +6,28 @@ __lua__
 
 -- config (tweak these!)
 cfg={
- -- player
- start_health=100,
- start_shield=100,
- shield_regen_delay=120,
- shield_regen_rate=0.1,
- -- rotation
- rot_accel=0.001,
- rot_max=0.04,
- rot_damp=0.85,
- -- throttle
- throttle_rate=0.03,
- max_speed=1.5,
- -- weapons
- fire_rate=8,
- bullet_speed=3,
- bullet_life=120,
- enemy_bullet_spd=3,
- enemy_bullet_life=180,
- -- collision
- enemy_hit_radius=10,
- player_hit_radius=4,
- -- damage
- bullet_dmg=1,
- shield_dmg=15,
- hull_dmg=10,
+ start_hp=100,  -- used for health and shield
+ shield_regen_delay=120,shield_regen_rate=0.1,
+ rot_accel=0.001,rot_max=0.04,rot_damp=0.85,
+ throttle_rate=0.03,max_speed=1.5,
+ fire_rate=8,bullet_spd=3,bullet_life=120,enemy_bullet_life=180,
+ enemy_hit_r=10,player_hit_r=4,
+ bullet_dmg=1,shield_dmg=15,hull_dmg=10,
  -- enemy types
  enemy_normal={hp=20,spd=0.6,fire=20,acc=0.15},
  enemy_heavy={hp=50,spd=0.4,fire=60,acc=0.1},
  enemy_fast={hp=12,spd=0.9,fire=80,acc=0.12},
- -- explosions
- expl_normal={sz=18,dur=30,debris=8,col=9},
- expl_heavy={sz=25,dur=40,debris=12,col=8},
- expl_fast={sz=12,dur=20,debris=6,col=9},
+ -- frigate (capital ship)
+ enemy_frigate={hp=200,spd=0.2,fire=40,acc=0.03},
+ frigate_subsys_hp=25,  -- hp per subsystem
+ frigate_weak_mult=4,
  -- evasion
  evade_hit_threshold=3,
  evade_duration=20,
- -- enemy AI
- ai_facing_threshold=0.5,
- ai_fire_range=300,
- ai_refire_delay=10,
- ai_refire_random=8,
- ai_burst_shots=4,
- ai_burst_random=2,
- ai_breakoff_time=8,
- ai_breakoff_random=5,
- ai_reaim_time=5,
- ai_reaim_random=8,
- -- shot-based evade mode
- ai_evade_shots=10,      -- enter evade after this many shots
- ai_evade_duration=1800, -- 30 sec cooldown (frames @60fps)
- ai_evade_random=300,    -- 0-5 sec random variance
- ai_evade_close_dist=35, -- evade if closer than this
+ -- enemy AI (shortened keys)
+ ai_face=0.5,ai_refire=10,ai_refire_r=8,
+ ai_burst=4,ai_burst_r=2,ai_break=8,ai_break_r=5,
+ ai_evade_n=10,ai_evade_t=1800,ai_evade_r=300,ai_evade_d=35,
 }
 
 -- game state
@@ -107,11 +77,11 @@ match_speed_held=false
 -- tables
 stars={}
 enemies={}
+subsystems={}  -- frigate subsystems (weapons, reactors)
 bullets={}
 parts={}
 expls={}
 dust={}
-debris={}
 
 -- ship verts/faces
 ship_v={
@@ -170,6 +140,37 @@ fast_f={
  {5,6,3,1},{5,2,6,1}
 }
 
+-- frigate (capital ship) - large elongated hull
+frigate_v={
+ {0,0,20},{-8,0,-15},{8,0,-15},  -- nose and rear
+ {0,4,5},{0,-4,5},               -- top/bottom mid
+ {-10,0,0},{10,0,0},             -- wings
+ {0,0,-18},                       -- tail
+ {-6,2,-8},{6,2,-8},             -- upper rear
+ {-6,-2,-8},{6,-2,-8}            -- lower rear
+}
+frigate_f={
+ {1,4,2,5},{1,3,4,5},            -- top front
+ {1,2,5,6},{1,5,3,6},            -- bottom front
+ {4,3,8,5},{4,8,2,5},            -- top rear
+ {5,8,3,6},{5,2,8,6},            -- bottom rear
+ {6,2,1,8},{7,1,3,8},            -- wing fronts
+ {6,8,2,5},{7,3,8,5},            -- wing rears
+ {9,4,10,11},{11,5,12,11}        -- bridge details
+}
+
+-- subsystem marker (small cube for weapons/reactors)
+subsys_v={
+ {-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1},
+ {-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1}
+}
+subsys_f={
+ {1,2,3,8},{1,3,4,8},  -- front
+ {5,7,6,8},{5,8,7,8},  -- back
+ {1,5,6,9},{1,6,2,9},  -- bottom
+ {4,3,7,9},{4,7,8,9}   -- top
+}
+
 -- 3d math
 function v_sub(a,b)
  return {a[1]-b[1],a[2]-b[2],a[3]-b[3]}
@@ -195,6 +196,25 @@ function v_norm(v)
  local l=v_len(v)
  if l==0 then return {0,0,1} end
  return {v[1]/l,v[2]/l,v[3]/l}
+end
+
+-- helper: distance from player (scaled to avoid overflow)
+function dist_from_player(x,y,z)
+ local dx,dy,dz=(x-px)/16,(y-py)/16,(z-pz)/16
+ return sqrt(dx*dx+dy*dy+dz*dz)*16
+end
+
+-- helper: normalize angle to 0-1
+function norm_ang(a)
+ while a>=1 do a-=1 end
+ while a<0 do a+=1 end
+ return a
+end
+
+-- helper: get target world position (works for enemies and subsystems)
+function get_target_pos(t)
+ if t.parent then return get_subsys_pos(t) end
+ return t.x,t.y,t.z
 end
 
 function rotx(x,y,z,a)
@@ -285,8 +305,7 @@ end
 
 -- celestial objects
 sun_dir={0.6,0.3,0.7}
-planet_pos={-500,200,800}
-planet_r=80
+shade_sun={0.5,0.7,-0.5}  -- for ship lighting
 
 function _init()
  poke(0x5f2d,1)
@@ -298,11 +317,11 @@ function _init()
    add(stars,{x/l,y/l,z/l})
   end
  end
- -- normalize sun direction
+ -- normalize sun directions
  local l=sqrt(sun_dir[1]^2+sun_dir[2]^2+sun_dir[3]^2)
- sun_dir[1]/=l
- sun_dir[2]/=l
- sun_dir[3]/=l
+ sun_dir[1]/=l sun_dir[2]/=l sun_dir[3]/=l
+ l=sqrt(shade_sun[1]^2+shade_sun[2]^2+shade_sun[3]^2)
+ shade_sun[1]/=l shade_sun[2]/=l shade_sun[3]/=l
 end
 
 function _update60()
@@ -331,19 +350,19 @@ function start_game()
  pfire=0
  throttle=0.3
  score=0
- health=cfg.start_health
- shield=cfg.start_shield
+ health=cfg.start_hp
+ shield=cfg.start_hp
  shield_recharge=0
  hit_flash=0
  wave=1
  wave_enemies=1
  spawn_t=0
  enemies={}
+ subsystems={}
  bullets={}
  parts={}
  expls={}
  dust={}
- debris={}
  target=nil
  last_b_tap=-99
  rot_pitch=0
@@ -426,6 +445,8 @@ function update_play()
   else
    rot_yaw*=rd
   end
+  -- damp roll when not in alt mode
+  rot_roll*=rd
  end
 
  -- apply rotational velocities
@@ -532,17 +553,6 @@ function update_play()
   end
  end
 
- -- debris triangles
- for d in all(debris) do
-  d.x+=d.vx
-  d.y+=d.vy
-  d.z+=d.vz
-  d.rx+=d.rvx
-  d.ry+=d.rvy
-  d.life-=1
-  if d.life<=0 then del(debris,d) end
- end
-
  -- dust particles (move opposite to player velocity)
  for d in all(dust) do
   d.x-=p_fwd[1]*pspeed
@@ -594,73 +604,87 @@ function update_ui()
  end
 end
 
+-- enemy type lookup table
+enemy_types={
+ normal={c=cfg.enemy_normal,v=enemy_v,f=enemy_f},
+ heavy={c=cfg.enemy_heavy,v=heavy_v,f=heavy_f},
+ fast={c=cfg.enemy_fast,v=fast_v,f=fast_f},
+ frigate={c=cfg.enemy_frigate,v=frigate_v,f=frigate_f}
+}
+
 function spawn_enemy(etype)
  etype=etype or "normal"
+ local et=enemy_types[etype]
+ local c=et.c
  -- spawn position relative to player
- local ex=rnd(100)-50+px
- local ey=rnd(60)-30+py
- local ez=rnd(100)+80+pz
- -- calculate direction to player for initial aim
+ local ex,ey,ez=rnd(100)-50+px,rnd(60)-30+py,rnd(100)+80+pz
  local dx,dy,dz=px-ex,py-ey,pz-ez
- local iry=atan2(dx,dz)
- local irx=-atan2(dy,sqrt(dx*dx+dz*dz))
  local e={
   x=ex,y=ey,z=ez,
-  rx=irx,ry=iry,rz=0,
-  etype=etype,
-  ai=0,
-  evade=0,
-  evade_dir=0,
-  breakoff=0,
-  burst=0,
-  total_shots=0  -- track total shots for evade mode
+  rx=-atan2(dy,sqrt(dx*dx+dz*dz)),ry=atan2(dx,dz),rz=0,
+  etype=etype,v=et.v,f=et.f,
+  hp=c.hp,max_hp=c.hp,spd=c.spd,fire=rnd(30)+c.fire,acc=c.acc,
+  ai=0,evade=0,evade_dir=0,breakoff=0,burst=0,total_shots=0
  }
- -- type-specific stats from config
- local c
- if etype=="normal" then
-  c=cfg.enemy_normal
-  e.v=enemy_v
-  e.f=enemy_f
- elseif etype=="heavy" then
-  c=cfg.enemy_heavy
-  e.v=heavy_v
-  e.f=heavy_f
- elseif etype=="fast" then
-  c=cfg.enemy_fast
-  e.v=fast_v
-  e.f=fast_f
+ if etype=="frigate" then
+  e.is_frigate=true
+  e.subsys_ids={}
+  add(enemies,e)
+  spawn_frigate_subsystems(e)
+ else
+  add(enemies,e)
  end
- e.hp=c.hp
- e.max_hp=c.hp
- e.spd=c.spd
- e.fire=rnd(30)+c.fire
- e.acc=c.acc
- add(enemies,e)
+end
+
+-- spawn subsystems attached to a frigate
+function spawn_frigate_subsystems(frigate)
+ -- subsystem positions relative to frigate (local coords)
+ local positions={
+  {-6,2,0,"weapon"},   -- left turret
+  {6,2,0,"weapon"},    -- right turret
+  {0,3,-5,"reactor"},  -- top reactor
+  {0,-3,-5,"reactor"}  -- bottom reactor
+ }
+ for i,pos in pairs(positions) do
+  local s={
+   parent=frigate,
+   lx=pos[1],ly=pos[2],lz=pos[3],  -- local offset
+   stype=pos[4],
+   hp=cfg.frigate_subsys_hp,
+   max_hp=cfg.frigate_subsys_hp,
+   v=subsys_v,
+   f=subsys_f,
+   fire=rnd(60)+30  -- firing cooldown
+  }
+  add(subsystems,s)
+  add(frigate.subsys_ids,s)
+ end
 end
 
 function spawn_wave()
  -- wave is already incremented when this is called
- -- wave 2: 1 normal (after beating wave 1)
- -- wave 3: 2 normal
+ -- wave 2: 1 normal
+ -- wave 3: 1 frigate!
  -- wave 4: 2 normal + 1 fast
- -- wave 5: 1 normal + 1 heavy + 1 fast
- -- wave 6+: mix up to 4
+ -- wave 5: 1 frigate + 1 fast
+ -- wave 6+: mix, frigate every 3rd wave
  if wave==2 then
   spawn_enemy("normal")
  elseif wave==3 then
-  spawn_enemy("normal")
-  spawn_enemy("normal")
+  spawn_enemy("frigate")
  elseif wave==4 then
   spawn_enemy("normal")
   spawn_enemy("normal")
   spawn_enemy("fast")
  elseif wave==5 then
-  spawn_enemy("normal")
-  spawn_enemy("heavy")
+  spawn_enemy("frigate")
   spawn_enemy("fast")
  else
-  -- wave 6+: random mix, max 4
-  local count=min(wave-2,4)
+  -- wave 6+: random mix, frigate every 3rd wave
+  if wave%3==0 then
+   spawn_enemy("frigate")
+  end
+  local count=min(wave-3,3)
   for i=1,count do
    local r=rnd(10)
    if r<4 then
@@ -675,15 +699,26 @@ function spawn_wave()
 end
 
 function cycle_target()
- if #enemies==0 then
+ -- build combined target list: enemies + live subsystems
+ local targets={}
+ for e in all(enemies) do
+  add(targets,e)
+ end
+ for s in all(subsystems) do
+  if s.hp>0 then
+   add(targets,s)
+  end
+ end
+
+ if #targets==0 then
   target=nil
   return
  end
 
  -- find current target index
  local cur_idx=0
- for i,e in pairs(enemies) do
-  if e==target then
+ for i,t in pairs(targets) do
+  if t==target then
    cur_idx=i
    break
   end
@@ -691,8 +726,8 @@ function cycle_target()
 
  -- cycle to next
  cur_idx+=1
- if cur_idx>#enemies then cur_idx=1 end
- target=enemies[cur_idx]
+ if cur_idx>#targets then cur_idx=1 end
+ target=targets[cur_idx]
  sfx(4)
 end
 
@@ -741,12 +776,9 @@ function update_enemies()
   e.state_timer+=1
   if e.state!="evade" then
    -- force evade if too close to player
-   if dist<cfg.ai_evade_close_dist and e.state=="attack" then
-    -- turn away sharply
-    e.ry+=0.4+rnd(0.2)*(rnd(1)<0.5 and 1 or -1)
-    while e.ry>=1 do e.ry-=1 end
-    while e.ry<0 do e.ry+=1 end
-    e.evade_timer=cfg.ai_evade_duration+flr(rnd(cfg.ai_evade_random))
+   if dist<cfg.ai_evade_d and e.state=="attack" then
+    e.ry=norm_ang(e.ry+0.4+rnd(0.2)*(rnd(1)<0.5 and 1 or -1))
+    e.evade_timer=cfg.ai_evade_t+flr(rnd(cfg.ai_evade_r))
     e.evade_yaw=rnd(1)<0.5 and 1 or -1
     e.state="evade"
     e.burst=0
@@ -778,20 +810,13 @@ function update_enemies()
    end
   end
 
-  -- DEBUG: print state info every ~30 frames
-  if e.state_timer%30==1 then
-   printh("["..e.state.."] d="..flr(dist).." fac="..flr(facing*100)/100 .." cy="..flr(cross_y*100)/100 .." cx="..flr(cross_x*100)/100)
-  end
-
   -- EXECUTE CURRENT STATE
   if e.state=="evade" then
    -- EVADE: fly away from player aggressively after 10 shots
    e.evade_timer=(e.evade_timer or 0)-1
 
-   -- gentle weaving motion while evading (fixed small turn rate)
-   e.ry+=e.evade_yaw*0.003
-   while e.ry>=1 do e.ry-=1 end
-   while e.ry<0 do e.ry+=1 end
+   -- gentle weaving motion while evading
+   e.ry=norm_ang(e.ry+e.evade_yaw*0.003)
 
    -- recalc forward after turning
    fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
@@ -821,11 +846,7 @@ function update_enemies()
    e.ry+=cross_y*turn
    e.rx-=cross_x*turn
 
-   -- normalize angles
-   while e.ry>=1 do e.ry-=1 end
-   while e.ry<0 do e.ry+=1 end
-   while e.rx>=1 do e.rx-=1 end
-   while e.rx<0 do e.rx+=1 end
+   e.ry,e.rx=norm_ang(e.ry),norm_ang(e.rx)
 
    -- recalc forward after turning
    fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
@@ -838,30 +859,26 @@ function update_enemies()
 
    -- firing: only when facing player
    e.fire-=1
-   if e.fire<=0 and facing>cfg.ai_facing_threshold then
+   if e.fire<=0 and facing>cfg.ai_face then
     fire_enemy_bullet(e.x,e.y,e.z,e.rx,e.ry,e.rz)
-    e.fire=cfg.ai_refire_delay+rnd(cfg.ai_refire_random)
+    e.fire=cfg.ai_refire+rnd(cfg.ai_refire_r)
     sfx(1)
     e.burst=(e.burst or 0)+1
     e.total_shots=(e.total_shots or 0)+1
 
     -- check if should enter evade mode (after 10 shots)
-    if e.total_shots>=cfg.ai_evade_shots then
+    if e.total_shots>=cfg.ai_evade_n then
      -- turn away sharply
-     e.ry+=0.3+rnd(0.2)*(rnd(1)<0.5 and 1 or -1)
-     while e.ry>=1 do e.ry-=1 end
-     while e.ry<0 do e.ry+=1 end
-     e.evade_timer=cfg.ai_evade_duration+flr(rnd(cfg.ai_evade_random))
-     e.evade_yaw=rnd(1)<0.5 and 1 or -1  -- random turn direction
+     e.ry=norm_ang(e.ry+0.3+rnd(0.2)*(rnd(1)<0.5 and 1 or -1))
+     e.evade_timer=cfg.ai_evade_t+flr(rnd(cfg.ai_evade_r))
+     e.evade_yaw=rnd(1)<0.5 and 1 or -1
      e.state="evade"
      e.total_shots=0
      e.burst=0
     -- after burst, break off briefly
-    elseif e.burst>=cfg.ai_burst_shots+flr(rnd(cfg.ai_burst_random)) then
-     e.ry+=0.25+rnd(0.25)*(rnd(1)<0.5 and 1 or -1)
-     while e.ry>=1 do e.ry-=1 end
-     while e.ry<0 do e.ry+=1 end
-     e.breakoff=cfg.ai_breakoff_time+flr(rnd(cfg.ai_breakoff_random))
+    elseif e.burst>=cfg.ai_burst+flr(rnd(cfg.ai_burst_r)) then
+     e.ry=norm_ang(e.ry+0.25+rnd(0.25)*(rnd(1)<0.5 and 1 or -1))
+     e.breakoff=cfg.ai_break+flr(rnd(cfg.ai_break_r))
      e.state="breakoff"
      e.burst=0
     end
@@ -872,16 +889,9 @@ function update_enemies()
    turn=turn*2
    if dist>200 then turn=turn*2 end  -- even faster when far
 
-   -- cross_y: positive = turn right (increase ry)
-   -- cross_x: positive = pitch up (decrease rx)
    e.ry+=cross_y*turn
    e.rx-=cross_x*turn
-
-   -- normalize angles
-   while e.ry>=1 do e.ry-=1 end
-   while e.ry<0 do e.ry+=1 end
-   while e.rx>=1 do e.rx-=1 end
-   while e.rx<0 do e.rx+=1 end
+   e.ry,e.rx=norm_ang(e.ry),norm_ang(e.rx)
 
    -- recalc forward after turning
    fx,fy,fz=rot3d(0,0,1,e.rx,e.ry,e.rz)
@@ -914,7 +924,7 @@ function update_enemies()
 end
 
 function fire_player_bullet()
- local spd=cfg.bullet_speed
+ local spd=cfg.bullet_spd
  add(bullets,{
   x=px+p_fwd[1]*5,
   y=py+p_fwd[2]*5,
@@ -926,24 +936,32 @@ function fire_player_bullet()
  })
 end
 
-function fire_bullet(x,y,z,rx,ry,rz,plr)
- local fx,fy,fz=rot3d(0,0,1,rx,ry,rz)
- local spd=plr and cfg.bullet_speed or 1.5
- add(bullets,{
-  x=x+fx*5,y=y+fy*5,z=z+fz*5,
-  vx=fx*spd,vy=fy*spd,vz=fz*spd,
-  plr=plr,life=cfg.bullet_life
- })
-end
-
 function fire_enemy_bullet(x,y,z,rx,ry,rz)
  local fx,fy,fz=rot3d(0,0,1,rx,ry,rz)
- local spd=cfg.enemy_bullet_spd
+ local spd=cfg.bullet_spd
  add(bullets,{
   x=x+fx*5,y=y+fy*5,z=z+fz*5,
   vx=fx*spd,vy=fy*spd,vz=fz*spd,
   plr=false,life=cfg.enemy_bullet_life
  })
+end
+
+-- get subsystem world position
+function get_subsys_pos(s)
+ if not s.parent then return s.lx,s.ly,s.lz end
+ local p=s.parent
+ -- rotate local offset by parent orientation
+ local wx,wy,wz=rot3d(s.lx,s.ly,s.lz,p.rx,p.ry,p.rz)
+ return p.x+wx,p.y+wy,p.z+wz
+end
+
+-- check if frigate has all subsystems destroyed
+function frigate_is_weak(e)
+ if not e.is_frigate then return false end
+ for s in all(e.subsys_ids) do
+  if s.hp>0 then return false end
+ end
+ return true
 end
 
 function update_bullets()
@@ -956,31 +974,72 @@ function update_bullets()
   if b.life<=0 then
    del(bullets,b)
   elseif b.plr then
+   local hit=false
+
+   -- player bullet -> subsystem collision (check first!)
+   for s in all(subsystems) do
+    if s.hp>0 then
+     local sx,sy,sz=get_subsys_pos(s)
+     local dx,dy,dz=(b.x-sx)/16,(b.y-sy)/16,(b.z-sz)/16
+     local d=sqrt(dx*dx+dy*dy+dz*dz)*16
+     if d<5 then  -- smaller hit radius for subsystems
+      s.hp-=cfg.bullet_dmg
+      add_parts(b.x,b.y,b.z,6,9)
+      add_expl(b.x,b.y,b.z,3)
+      del(bullets,b)
+      sfx(2)
+      if s.hp<=0 then
+       -- subsystem destroyed!
+       add_ship_expl(sx,sy,sz,"subsys")
+       score+=50
+       sfx(5)
+      end
+      hit=true
+      break
+     end
+    end
+   end
+
    -- player bullet -> enemy collision
-   for e in all(enemies) do
-    -- scale down before squaring to avoid pico-8 overflow
-    local dx,dy,dz=(b.x-e.x)/16,(b.y-e.y)/16,(b.z-e.z)/16
-    local d=sqrt(dx*dx+dy*dy+dz*dz)*16
-    if d<cfg.enemy_hit_radius then
-     e.hp-=cfg.bullet_dmg
-     e.hits=(e.hits or 0)+1
-     -- trigger evasion after taking a few hits
-     if e.hits>=cfg.evade_hit_threshold+flr(rnd(3)) then
-      e.evade=cfg.evade_duration+rnd(15)
-      e.evade_dir=rnd(1)<0.5 and -1 or 1
-      e.hits=0 -- reset hit counter
+   if not hit then
+    for e in all(enemies) do
+     -- scale down before squaring to avoid pico-8 overflow
+     local dx,dy,dz=(b.x-e.x)/16,(b.y-e.y)/16,(b.z-e.z)/16
+     local d=sqrt(dx*dx+dy*dy+dz*dz)*16
+     local hit_r=e.is_frigate and 20 or cfg.enemy_hit_r
+     if d<hit_r then
+      -- apply damage (4x if frigate with all subsystems down)
+      local dmg=cfg.bullet_dmg
+      if frigate_is_weak(e) then
+       dmg=dmg*cfg.frigate_weak_mult
+      end
+      e.hp-=dmg
+      e.hits=(e.hits or 0)+1
+      -- trigger evasion after taking a few hits (not for frigates)
+      if not e.is_frigate and e.hits>=cfg.evade_hit_threshold+flr(rnd(3)) then
+       e.evade=cfg.evade_duration+rnd(15)
+       e.evade_dir=rnd(1)<0.5 and -1 or 1
+       e.hits=0 -- reset hit counter
+      end
+      add_parts(b.x,b.y,b.z,8,9)
+      add_expl(b.x,b.y,b.z,5) -- small explosion on hit
+      del(bullets,b)
+      sfx(2)
+      if e.hp<=0 then
+       add_ship_expl(e.x,e.y,e.z,e.etype)
+       -- frigates give more score
+       score+=e.is_frigate and 500 or 100
+       -- remove subsystems when frigate dies
+       if e.is_frigate then
+        for s in all(e.subsys_ids) do
+         del(subsystems,s)
+        end
+       end
+       del(enemies,e)
+       sfx(5) -- big explosion sound
+      end
+      break
      end
-     add_parts(b.x,b.y,b.z,8,9)
-     add_expl(b.x,b.y,b.z,5) -- small explosion on hit
-     del(bullets,b)
-     sfx(2)
-     if e.hp<=0 then
-      add_ship_expl(e.x,e.y,e.z,e.etype)
-      score+=100
-      del(enemies,e)
-      sfx(5) -- big explosion sound
-     end
-     break
     end
    end
   else
@@ -988,7 +1047,7 @@ function update_bullets()
    -- scale down before squaring to avoid pico-8 overflow
    local dx,dy,dz=(b.x-px)/16,(b.y-py)/16,(b.z-pz)/16
    local d=sqrt(dx*dx+dy*dy+dz*dz)*16
-   if d<cfg.player_hit_radius then
+   if d<cfg.player_hit_r then
     shield_recharge=0
     hit_flash=10
     if shield>0 then
@@ -1017,46 +1076,15 @@ function add_expl(x,y,z,sz)
  add_parts(x,y,z,sz,9)
 end
 
--- spectacular ship explosion with flying triangles
+-- explosion sizes by type
+expl_sz={normal=18,heavy=25,fast=12,frigate=40,subsys=10}
+
 function add_ship_expl(x,y,z,etype)
- -- get explosion config based on ship type
- local ec
- if etype=="heavy" then
-  ec=cfg.expl_heavy
- elseif etype=="fast" then
-  ec=cfg.expl_fast
- else -- normal
-  ec=cfg.expl_normal
- end
- local sz,dur,debris_n,col=ec.sz,ec.dur,ec.debris,ec.col
-
- -- multiple expanding explosions
+ local sz=expl_sz[etype] or 18
  add(expls,{x,y,z,0,true,sz})
- add(expls,{x+rnd(4)-2,y+rnd(4)-2,z+rnd(4)-2,0,true,sz*0.7})
- add(expls,{x+rnd(6)-3,y+rnd(6)-3,z+rnd(6)-3,0,true,sz*0.5})
-
- -- lots of particles
- add_parts(x,y,z,sz*2,10)
- add_parts(x,y,z,sz*2,9)
- add_parts(x,y,z,sz,8)
- add_parts(x,y,z,sz,7)
-
- -- flying debris triangles
- for i=1,debris_n do
-  local spd=0.3+rnd(0.5)
-  local vx,vy,vz=rnd(2)-1,rnd(2)-1,rnd(2)-1
-  local len=sqrt(vx*vx+vy*vy+vz*vz)
-  if len>0 then vx,vy,vz=vx/len*spd,vy/len*spd,vz/len*spd end
-  add(debris,{
-   x=x,y=y,z=z,
-   vx=vx,vy=vy,vz=vz,
-   rx=rnd(1),ry=rnd(1),rz=rnd(1),
-   rvx=rnd(0.1)-0.05,rvy=rnd(0.1)-0.05,
-   sz=1+rnd(2),
-   life=dur+rnd(20),
-   col=col
-  })
- end
+ add(expls,{x+rnd(4)-2,y+rnd(4)-2,z+rnd(4)-2,0,true,sz*0.6})
+ add_parts(x,y,z,sz,10)
+ add_parts(x,y,z,sz,9)
 end
 
 function _draw()
@@ -1073,26 +1101,13 @@ function _draw()
 end
 
 function draw_title()
- -- stars
  for s in all(stars) do
-  if s[3]>1 then
-   local sx=64+s[1]*60/s[3]
-   local sy=64-s[2]*60/s[3]
-   if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    pset(sx,sy,7)
-   end
-  end
+  if s[3]>1 then pset(64+s[1]*60/s[3],64-s[2]*60/s[3],7) end
  end
-
  rectfill(14,28,114,48,1)
  print("space combat 3d",28,32,11)
- print("---------------",28,40,5)
-
- print("arrows: pitch/yaw",23,54,6)
- print("hold z+arrows:",27,62,6)
- print("speed/roll",39,70,13)
- print("x: fire",47,80,6)
-
+ print("arrows:move z+arr:spd/roll",10,54,6)
+ print("x:fire  dbl-z:target",20,64,6)
  print("press x to start",28,100,10)
 end
 
@@ -1109,6 +1124,16 @@ function draw_play()
   add_ship(faces,e.x,e.y,e.z,e.rx,e.ry,e.rz,ev,ef)
  end
 
+ -- render live subsystems
+ for s in all(subsystems) do
+  if s.hp>0 then
+   local sx,sy,sz=get_subsys_pos(s)
+   local p=s.parent
+   -- use parent rotation for subsystem orientation
+   add_ship(faces,sx,sy,sz,p.rx,p.ry,p.rz,s.v,s.f)
+  end
+ end
+
  sort_faces(faces)
 
  for f in all(faces) do
@@ -1117,7 +1142,6 @@ function draw_play()
 
  draw_bullets_()
  draw_parts()
- draw_debris()
  draw_expls()
  draw_hud()
 end
@@ -1132,58 +1156,33 @@ function dir_to_screen(dx,dy,dz)
 end
 
 function draw_stars()
- -- draw stars first (background layer, twinkling)
- local tm=t()*3
  for i,s in pairs(stars) do
   local svx,svy,svz=dir_to_screen(s[1],s[2],s[3])
   if svz>0.1 then
-   local sx=64+svx*90/svz
-   local sy=64-svy*90/svz
+   local sx,sy=64+svx*90/svz,64-svy*90/svz
    if sx>=0 and sx<128 and sy>=0 and sy<128 then
-    -- twinkle based on star index and time
-    local twinkle=sin(tm+i*0.1)
-    -- varied colors: white, light blue, yellow, dim
-    local cols={7,12,10,6,5}
-    local ci=1+(i%5)
-    -- twinkle affects brightness
-    if twinkle<-0.3 then
-     ci=min(ci+1,5)
-    elseif twinkle>0.5 then
-     ci=max(ci-1,1)
-    end
-    pset(sx,sy,cols[ci])
+    pset(sx,sy,({7,12,10,6,5})[1+i%5])
    end
   end
  end
 
- -- draw planet (in front of stars)
- local pdx,pdy,pdz=-0.4,0.3,0.6
- local pvx,pvy,pvz=dir_to_screen(pdx,pdy,pdz)
+ -- draw planet
+ local pvx,pvy,pvz=dir_to_screen(-0.4,0.3,0.6)
  if pvz>0.1 then
-  local psx=64+pvx*120/pvz
-  local psy=64-pvy*120/pvz
-  local pr=25/pvz
-  if psx>-pr-10 and psx<138+pr and psy>-pr-10 and psy<138+pr then
-   circfill(psx,psy,pr,1)
-   circfill(psx,psy,pr*0.92,12)
+  local psx,psy,pr=64+pvx*120/pvz,64-pvy*120/pvz,25/pvz
+  if psx>-30 and psx<158 and psy>-30 and psy<158 then
+   circfill(psx,psy,pr,12)
    circ(psx,psy,pr,6)
-   if pr>4 then
-    circfill(psx-pr*0.3,psy-pr*0.2,pr*0.25,3)
-    circfill(psx+pr*0.2,psy+pr*0.25,pr*0.2,3)
-   end
   end
  end
 
- -- draw sun last (in front of everything)
+ -- draw sun
  local svx,svy,svz=dir_to_screen(sun_dir[1],sun_dir[2],sun_dir[3])
  if svz>0.1 then
-  local ssx=64+svx*120/svz
-  local ssy=64-svy*120/svz
+  local ssx,ssy=64+svx*120/svz,64-svy*120/svz
   if ssx>=-20 and ssx<148 and ssy>=-20 and ssy<148 then
-   circfill(ssx,ssy,14,10)
-   circfill(ssx,ssy,10,9)
-   circfill(ssx,ssy,6,10)
-   circfill(ssx,ssy,3,7)
+   circfill(ssx,ssy,12,10)
+   circfill(ssx,ssy,6,7)
   end
  end
 end
@@ -1266,8 +1265,7 @@ function add_faces(faces,tv,fcs)
     local p2x,p2y=proj(v2[1],v2[2],v2[3])
     local p3x,p3y=proj(v3[1],v3[2],v3[3])
 
-    local sun=v_norm({0.5,0.7,-0.5})
-    local light=(v_dot(n,sun)+1)/2
+    local light=(v_dot(n,shade_sun)+1)/2
     local col=shade(f[4],light)
 
     add(faces,{p1x,p1y,p2x,p2y,p3x,p3y,col,ctr[3]})
@@ -1360,29 +1358,6 @@ function draw_parts()
  end
 end
 
-function draw_debris()
- for d in all(debris) do
-  local vx,vy,vz=to_cam_space(d.x,d.y,d.z)
-  if vz>1 then
-   local sx,sy=proj(vx,vy,vz)
-   local sz=d.sz*8/vz
-   if sx>-20 and sx<148 and sy>-20 and sy<148 then
-    -- spinning triangle
-    local a=d.rx
-    local x1,y1=sx+cos(a)*sz,sy+sin(a)*sz
-    local x2,y2=sx+cos(a+0.33)*sz,sy+sin(a+0.33)*sz
-    local x3,y3=sx+cos(a+0.66)*sz,sy+sin(a+0.66)*sz
-    -- fade color as life decreases
-    local col=d.col
-    if d.life<10 then col=5 end
-    line(x1,y1,x2,y2,col)
-    line(x2,y2,x3,y3,col)
-    line(x3,y3,x1,y1,col)
-   end
-  end
- end
-end
-
 function draw_dust()
  for d in all(dust) do
   -- dust is relative to player position
@@ -1433,7 +1408,7 @@ function draw_hud()
 
  -- score/wave
  print("score:"..score,60,5,7)
- print("wave:"..wave,90,115,6)
+ print("wave:"..wave,95,115,6)
 
  -- reticle
  circ(64,64,10,3)
@@ -1452,9 +1427,17 @@ function draw_hud()
  rectfill(116,fy,120,85,11)
  rectfill(113,fy-2,123,fy+2,7)
  print("thr",111,88,5)
- -- match speed indicator
- if match_speed then
-  print("mtch",109,95,11)
+ -- speed in m/s
+ local spd_display=flr(pspeed*10)
+ print(spd_display.."m/s",107,95,match_speed and 11 or 6)
+
+ -- button prompts when holding Z (draw above radar)
+ if btn(4) then
+  rectfill(2,72,58,97,1)
+  rect(2,72,58,97,6)
+  print("up/dn:speed",4,74,11)
+  print("up+dn:match",4,82,9)
+  print("l/r:roll",4,90,11)
  end
 
  -- radar (bottom left)
@@ -1464,21 +1447,26 @@ function draw_hud()
  if target then
   rectfill(50,100,90,126,1)
   rect(50,100,90,126,9)
-  -- scale to avoid overflow
-  local dx,dy,dz=(target.x-px)/16,(target.y-py)/16,(target.z-pz)/16
-  local dist=sqrt(dx*dx+dy*dy+dz*dz)*16
+  local tx,ty,tz=get_target_pos(target)
+  local dist=dist_from_player(tx,ty,tz)
   print("rng:"..flr(dist).."m",52,102,9)
-  -- enemy health bar (normalized 0-1)
-  print("hp:",52,112,8)
-  rectfill(64,111,88,117,0)
+  -- show type for subsystems
+  if target.stype then
+   local lbl=target.stype=="weapon" and "WEAPON" or "REACTOR"
+   print(lbl,52,108,10)
+  end
+  -- health bar (normalized 0-1)
+  local hp_y=target.stype and 116 or 112
+  print("hp:",52,hp_y,8)
+  rectfill(64,hp_y-1,88,hp_y+5,0)
   local max_hp=target.max_hp or 20
   local hp_ratio=target.hp/max_hp
   local ehp=flr(hp_ratio*22)
   if target.hp>0 then
    local hcol=hp_ratio>0.5 and 11 or (hp_ratio>0.25 and 9 or 8)
-   rectfill(65,112,65+ehp,116,hcol)
+   rectfill(65,hp_y,65+ehp,hp_y+4,hcol)
   end
-  rect(64,111,88,117,7)
+  rect(64,hp_y-1,88,hp_y+5,7)
  end
 end
 
@@ -1531,12 +1519,25 @@ function draw_radar()
  pset(rx,ry,7)
 end
 
+-- helper: draw corner brackets
+function draw_brackets(sx,sy,sz,col)
+ line(sx-sz,sy-sz,sx-sz,sy-sz+sz/2,col)
+ line(sx-sz,sy-sz,sx-sz+sz/2,sy-sz,col)
+ line(sx+sz,sy-sz,sx+sz,sy-sz+sz/2,col)
+ line(sx+sz,sy-sz,sx+sz-sz/2,sy-sz,col)
+ line(sx-sz,sy+sz,sx-sz,sy+sz-sz/2,col)
+ line(sx-sz,sy+sz,sx-sz+sz/2,sy+sz,col)
+ line(sx+sz,sy+sz,sx+sz,sy+sz-sz/2,col)
+ line(sx+sz,sy+sz,sx+sz-sz/2,sy+sz,col)
+end
+
 function draw_target_brackets()
  -- validate target still exists
  if target then
   local found=false
-  for e in all(enemies) do
-   if e==target then found=true break end
+  for e in all(enemies) do if e==target then found=true break end end
+  if not found then
+   for s in all(subsystems) do if s==target and s.hp>0 then found=true break end end
   end
   if not found then target=nil end
  end
@@ -1545,71 +1546,45 @@ function draw_target_brackets()
  if not target and #enemies>0 then
   local best_d=99999
   for e in all(enemies) do
-   local dx=e.x-px
-   local dy=e.y-py
-   local dz=e.z-pz
-   local d=dx*dx+dy*dy+dz*dz
-   if d<best_d then
-    best_d=d
-    target=e
-   end
+   local d=(e.x-px)^2+(e.y-py)^2+(e.z-pz)^2
+   if d<best_d then best_d,target=d,e end
   end
  end
 
  -- draw brackets on all enemies
  for e in all(enemies) do
   local vx,vy,vz=to_cam_space(e.x,e.y,e.z)
-  -- scale to avoid overflow
-  local dx,dy,dz=(e.x-px)/16,(e.y-py)/16,(e.z-pz)/16
-  local dist=sqrt(dx*dx+dy*dy+dz*dz)*16
+  local dist=dist_from_player(e.x,e.y,e.z)
+  local is_target=(e==target)
+  local col=is_target and 9 or 2
 
   if vz>1 then
    local sx,sy=proj(vx,vy,vz)
    local sz=max(6,40/vz)
-   local is_target=(e==target)
-   -- orange (9) for target, dark red (2) for others
-   local col=is_target and 9 or 2
+   draw_brackets(sx,sy,sz,col)
+   if is_target then print(flr(dist).."m",sx-10,sy+sz+2,9) end
+  elseif is_target then
+   local ang=atan2(vx,vz)
+   local ex,ey=64+cos(ang)*50,64-sin(ang)*50
+   circ(ex,ey,4,9)
+   print(flr(dist).."m",ex-10,ey+6,9)
+  end
+ end
 
-   -- corner brackets (wing commander style)
-   -- top-left
-   line(sx-sz,sy-sz,sx-sz,sy-sz+sz/2,col)
-   line(sx-sz,sy-sz,sx-sz+sz/2,sy-sz,col)
-   -- top-right
-   line(sx+sz,sy-sz,sx+sz,sy-sz+sz/2,col)
-   line(sx+sz,sy-sz,sx+sz-sz/2,sy-sz,col)
-   -- bottom-left
-   line(sx-sz,sy+sz,sx-sz,sy+sz-sz/2,col)
-   line(sx-sz,sy+sz,sx-sz+sz/2,sy+sz,col)
-   -- bottom-right
-   line(sx+sz,sy+sz,sx+sz,sy+sz-sz/2,col)
-   line(sx+sz,sy+sz,sx+sz-sz/2,sy+sz,col)
-
-   -- current target: show range below brackets
-   if is_target then
-    -- diamond marker above
-    local tdy=-sz-5
-    line(sx,sy+tdy-3,sx-3,sy+tdy,9)
-    line(sx,sy+tdy-3,sx+3,sy+tdy,9)
-    line(sx-3,sy+tdy,sx,sy+tdy+3,9)
-    line(sx+3,sy+tdy,sx,sy+tdy+3,9)
-    -- range below
-    print(flr(dist).."m",sx-10,sy+sz+2,9)
-   end
-  else
-   -- off-screen/behind indicator
-   if e==target then
-    -- use camera-space coords to find direction
-    local ang=atan2(vx,vz)
-    local ex=64+cos(ang)*50
-    local ey=64-sin(ang)*50
-    -- draw arrow pointing toward target
-    circfill(ex,ey,5,2)
-    circ(ex,ey,5,9)
-    -- arrow pointing direction
-    local ax,ay=cos(ang)*8,sin(ang)*8
-    line(ex,ey,ex+ax,ey-ay,9)
-    -- show range
-    print(flr(dist).."m",ex-10,ey+8,9)
+ -- draw brackets on live subsystems
+ for s in all(subsystems) do
+  if s.hp>0 then
+   local wx,wy,wz=get_subsys_pos(s)
+   local vx,vy,vz=to_cam_space(wx,wy,wz)
+   if vz>1 then
+    local sx,sy=proj(vx,vy,vz)
+    local sz=max(4,20/vz)
+    local is_target=(s==target)
+    draw_brackets(sx,sy,sz,is_target and 10 or 5)
+    if is_target then
+     local lbl=s.stype=="weapon" and "WPN" or "RCT"
+     print(lbl,sx-6,sy+sz+2,10)
+    end
    end
   end
  end
