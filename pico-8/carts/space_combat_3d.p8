@@ -780,10 +780,6 @@ function update_enemies()
    end
   end
 
-  -- DEBUG: print state info every ~30 frames
-  if e.state_timer%30==1 then
-   printh("["..e.state.."] d="..flr(dist).." fac="..flr(facing*100)/100 .." cy="..flr(cross_y*100)/100 .." cx="..flr(cross_x*100)/100)
-  end
 
   -- EXECUTE CURRENT STATE
   if e.state=="evade" then
@@ -925,16 +921,6 @@ function fire_player_bullet()
   vy=p_fwd[2]*spd+p_fwd[2]*pspeed,
   vz=p_fwd[3]*spd+p_fwd[3]*pspeed,
   plr=true,life=cfg.bullet_life
- })
-end
-
-function fire_bullet(x,y,z,rx,ry,rz,plr)
- local fx,fy,fz=rot3d(0,0,1,rx,ry,rz)
- local spd=plr and cfg.bullet_speed or 1.5
- add(bullets,{
-  x=x+fx*5,y=y+fy*5,z=z+fz*5,
-  vx=fx*spd,vy=fy*spd,vz=fz*spd,
-  plr=plr,life=cfg.bullet_life
  })
 end
 
@@ -1488,11 +1474,12 @@ function draw_hud()
 
  -- button prompts when holding Z
  if btn(4) then
-  rectfill(44,28,84,52,1)
-  rect(44,28,84,52,6)
-  print("\139\145:speed",47,31,11)
-  print("\139+\145:match",47,38,11)
-  print("\131\145:roll",47,45,6)
+  rectfill(40,28,88,59,1)
+  rect(40,28,88,59,6)
+  print("\131\148:speed",43,31,11)
+  print("\131+\148:match",43,38,11)
+  print("\139\145:roll",43,45,6)
+  print("2x\142:tgt",43,52,9)
  end
 end
 
