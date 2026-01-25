@@ -22,8 +22,8 @@ wind_spd=0.8 -- wind strength
 wind_t=0
 
 -- water grid
-water_size=16 -- tiles per side
-water_scale=12 -- world units per tile
+water_size=4 -- tiles per side (4x4=32 triangles)
+water_scale=48 -- world units per tile (larger to compensate)
 
 -- 3d math
 function v_sub(a,b)
@@ -242,19 +242,17 @@ function _draw()
   line(0,y,127,y,c)
  end
 
- -- collect all faces
+ -- draw voxel water (no sorting needed)
+ draw_water_voxels()
+
+ -- collect boat faces
  local faces={}
-
- -- draw water
- add_water(faces)
-
- -- draw boat
  add_boat(faces)
 
- -- sort by depth (painter's algorithm)
+ -- sort boat faces by depth
  sort_faces(faces)
 
- -- render faces
+ -- render boat
  for f in all(faces) do
   trifill(f[1],f[2],f[3],f[4],f[5],f[6],f[7])
  end
@@ -269,55 +267,48 @@ function _draw()
  draw_hud()
 end
 
-function add_water(faces)
- -- animated water plane
+function draw_water_voxels()
+ -- fat pixel water with noise
  local t=time()*2
- local half=water_size/2
+ local pix=4 -- fat pixel size
 
- for gx=0,water_size-1 do
-  for gz=0,water_size-1 do
-   -- world position centered on boat
-   local ox=(gx-half)*water_scale+flr(boat_x/water_scale)*water_scale
-   local oz=(gz-half)*water_scale+flr(boat_z/water_scale)*water_scale
+ -- draw from horizon down
+ for sy=41,127,pix do
+  for sx=0,127,pix do
+   -- cast ray from screen to water plane
+   -- approximate: further up screen = further away
+   local depth=(sy-40)*2
+   if depth>5 then
+    -- world position from screen
+    local ang=cam_ang
+    local ray_x=(sx-64)/90*depth
+    local ray_z=depth
 
-   -- wave heights at corners
-   local h00=get_wave(ox,oz,t)
-   local h10=get_wave(ox+water_scale,oz,t)
-   local h01=get_wave(ox,oz+water_scale,t)
-   local h11=get_wave(ox+water_scale,oz+water_scale,t)
+    -- rotate by camera angle
+    local wx=boat_x+ray_x*cos(ang)+ray_z*sin(ang)
+    local wz=boat_z-ray_x*sin(ang)+ray_z*cos(ang)
 
-   -- transform corners
-   local x0,y0,z0=to_cam(ox,h00,oz)
-   local x1,y1,z1=to_cam(ox+water_scale,h10,oz)
-   local x2,y2,z2=to_cam(ox,h01,oz+water_scale)
-   local x3,y3,z3=to_cam(ox+water_scale,h11,oz+water_scale)
+    -- wave height affects y
+    local wy=get_wave(wx,wz,t)
 
-   -- only draw if in front of camera
-   if z0>1 or z1>1 or z2>1 or z3>1 then
-    -- project
-    local p0x,p0y=proj(x0,y0,max(1,z0))
-    local p1x,p1y=proj(x1,y1,max(1,z1))
-    local p2x,p2y=proj(x2,y2,max(1,z2))
-    local p3x,p3y=proj(x3,y3,max(1,z3))
+    -- noise for color variation
+    local noise=sin(wx*0.1+t*0.5)+sin(wz*0.13+t*0.3)+sin((wx+wz)*0.07)
+    noise+=wy*0.5 -- wave height affects color
 
-    -- calculate normal for shading
-    local e1={x1-x0,y1-y0,z1-z0}
-    local e2={x2-x0,y2-y0,z2-z0}
-    local n=v_cross(e1,e2)
-    n=v_norm(n)
-
-    -- light from above-right
-    local light=(n[2]+0.5)/1.5
-    local col=water_shade(light)
-
-    -- depth for sorting (average z)
-    local avgz=(z0+z1+z2+z3)/4
-
-    -- two triangles per quad
-    if avgz>0 then
-     add(faces,{p0x,p0y,p1x,p1y,p2x,p2y,col,avgz})
-     add(faces,{p1x,p1y,p3x,p3y,p2x,p2y,col,avgz})
+    -- pick blue shade based on noise
+    local col
+    if noise>1.2 then
+     col=7 -- white foam
+    elseif noise>0.3 then
+     col=12 -- light blue
+    elseif noise>-0.5 then
+     col=1 -- dark blue
+    else
+     col=129 -- darker blue (dark blue alt)
     end
+
+    -- draw fat pixel
+    rectfill(sx,sy,sx+pix-1,sy+pix-1,col)
    end
   end
  end
