@@ -624,8 +624,9 @@ function draw_stove(st)
 
   -- pan if cooking
   if st.cooking then
-    ellipse(st.x+st.w/2,st.y+8,8,4,5)
-    ellipse(st.x+st.w/2,st.y+8,6,3,6)
+    local px=st.x+st.w/2
+    ovalfill(px-8,st.y+4,px+8,st.y+12,5)
+    ovalfill(px-6,st.y+5,px+6,st.y+11,6)
   end
 
   print("stove",st.x+2,st.y+st.h+2,6)
@@ -712,7 +713,7 @@ function draw_chef()
   local flip=chef.dir<0
 
   -- shadow
-  ellipse(x,y+6,6,2,1)
+  ovalfill(x-6,y+4,x+6,y+8,1)
 
   -- body (white coat)
   rectfill(x-4,y-4,x+4,y+4,7)
