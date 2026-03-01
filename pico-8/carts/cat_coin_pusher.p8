@@ -6,16 +6,11 @@ __lua__
 
 -------------------------------
 -- special coin definitions
--- 1=bomb 2=whirlpool 3=blackhole
--- 4=magnet 5=goldfish 6=multiplier
--- 7=earthquake 8=ice 9=clone
--- 10=crown
 -------------------------------
 spc_names={"bomb","whirl","b.hole",
  "magnet","gold","multi",
  "quake","ice","clone","crown"}
 spc_cols={8,12,0,12,10,9,4,12,11,10}
-spc_icons={} -- drawn procedurally
 spc_costs={30,25,40,20,15,35,30,25,20,45}
 spc_descs={
  "blast coins to edge",
@@ -59,39 +54,52 @@ popups={}
 round=1
 round_score=0
 target=0
-gold=0 -- currency for shop
+gold=0
 coins_left=0
 total_scored=0
 high_score=0
-run_over=false
 
--- multiplier/crown buffs
+-- buffs
 score_mult=1
 mult_timer=0
 combo_mult=1
 combo_buff_timer=0
 
--- combo
+-- combo tracking
 combo=0
 combo_timer=0
+-- combo threshold for spinner
+combo_best=0 -- best combo this round
+combo_threshold=5 -- coins in combo to trigger spinner
+spinner_pending=false
 
--- inventory: up to 5 special coins
-inv={} -- {type=1..10}
-inv_sel=1 -- selected slot
+-- spinner state
+spin_items={} -- 3 prize options
+spin_sel=0    -- current spinning index
+spin_speed=0
+spin_timer=0
+spin_result=0
+spin_done=false
+spin_mult=1   -- combo multiplier for prize
+
+-- inventory
+inv={}
+inv_sel=1
 inv_max=5
 
--- shop offerings
+-- shop
 shop_items={}
 shop_sel=1
-shop_page="buy" -- buy or done
+refresh_cost=10
+refresh_base=10
+
+-- end-round
+end_round_btn=false
+end_round_sel=false
 
 -- cat anims
 cat_blink=0
 cat_ear_twitch=0
-
--- end-round button
-end_round_btn=false
-end_round_sel=false
 
 -------------------------------
 -- helpers
@@ -100,9 +108,8 @@ function make_coin(x,y,stype)
  return {
   x=x,y=y,vx=0,vy=0,
   r=2.5,on_pusher=false,
-  stype=stype or 0, -- 0=normal
-  activated=false,
-  val=1
+  stype=stype or 0,
+  activated=false,val=1
  }
 end
 
@@ -155,7 +162,7 @@ end
 -- init
 -------------------------------
 function _init()
- cartdata("catcoinpush_rl1")
+ cartdata("catcoinpush_rl2")
  high_score=dget(0)
  start_title()
 end
@@ -168,7 +175,6 @@ function start_run()
  round=1
  gold=0
  inv={}
- run_over=false
  score_mult=1
  mult_timer=0
  combo_mult=1
@@ -181,6 +187,7 @@ function start_round()
  round_score=0
  combo=0
  combo_timer=0
+ combo_best=0
  total_scored=0
  target=get_target(round)
  coins_left=30+round*5
@@ -196,6 +203,7 @@ function start_round()
  disp.dir=1
  end_round_btn=false
  end_round_sel=false
+ spinner_pending=false
  seed_coins(100+round*10)
 end
 
@@ -249,7 +257,6 @@ function activate_special(c)
   end
   sfx(5)
  elseif st==2 then -- whirlpool
-  local cx=(fl+fr)/2
   for o in all(coins) do
    if o!=c then
     local d=cdist(c,o)
@@ -276,7 +283,6 @@ function activate_special(c)
     end
    end
   end
-  -- delayed release handled by timer
   for i=1,10 do
    make_particle(c.x,c.y,0,20)
    make_particle(c.x,c.y,1,18)
@@ -299,7 +305,7 @@ function activate_special(c)
   end
   sfx(3)
  elseif st==5 then -- goldfish
-  -- passive: scored at 5x (handled in check_scored)
+  -- passive
  elseif st==6 then -- multiplier
   score_mult=2
   mult_timer=180
@@ -347,6 +353,93 @@ function activate_special(c)
 end
 
 -------------------------------
+-- spinner
+-------------------------------
+function open_spinner(cmult)
+ state="spinner"
+ t=0
+ spin_mult=max(1,flr(cmult))
+ -- 3 random prizes
+ spin_items={}
+ -- prize 1: extra coins
+ add(spin_items,{
+  kind="coins",
+  label="+"..5*spin_mult.." coins",
+  col=10,
+  amt=5*spin_mult})
+ -- prize 2: gold
+ add(spin_items,{
+  kind="gold",
+  label="+"..10*spin_mult.." gold",
+  col=9,
+  amt=10*spin_mult})
+ -- prize 3: random special
+ local rs=flr(rnd(10))+1
+ add(spin_items,{
+  kind="special",
+  label=spc_names[rs].." coin",
+  col=spc_cols[rs],
+  stype=rs})
+ -- shuffle order
+ for i=#spin_items,2,-1 do
+  local j=flr(rnd(i))+1
+  spin_items[i],spin_items[j]=
+   spin_items[j],spin_items[i]
+ end
+ spin_sel=1
+ spin_speed=0.15+rnd(0.05)
+ spin_timer=90+flr(rnd(40))
+ spin_result=0
+ spin_done=false
+end
+
+function update_spinner()
+ t+=1
+ if not spin_done then
+  spin_timer-=1
+  -- spin through items
+  spin_sel+=spin_speed
+  if spin_sel>=#spin_items+1 then
+   spin_sel=1
+  end
+  -- slow down
+  if spin_timer<40 then
+   spin_speed*=0.97
+  end
+  if spin_timer<=0 or spin_speed<0.02 then
+   -- stop
+   spin_done=true
+   spin_result=flr(spin_sel)
+   if spin_result<1 then spin_result=1 end
+   if spin_result>#spin_items then
+    spin_result=#spin_items
+   end
+   -- award prize
+   local prize=spin_items[spin_result]
+   if prize.kind=="coins" then
+    coins_left+=prize.amt
+   elseif prize.kind=="gold" then
+    gold+=prize.amt
+   elseif prize.kind=="special" then
+    if #inv<inv_max then
+     add(inv,{type=prize.stype})
+    else
+     -- overflow: give gold instead
+     gold+=20
+    end
+   end
+   sfx(4)
+  end
+ else
+  -- wait for button press
+  if btnp(4) or btnp(5) then
+   state="play"
+   sfx(0)
+  end
+ end
+end
+
+-------------------------------
 -- update
 -------------------------------
 function _update60()
@@ -357,10 +450,10 @@ function _update60()
   update_title()
  elseif state=="play" then
   update_play()
- elseif state=="endround" then
-  update_endround()
  elseif state=="shop" then
   update_shop()
+ elseif state=="spinner" then
+  update_spinner()
  elseif state=="gameover" then
   update_gameover()
  end
@@ -422,12 +515,11 @@ function update_play()
   sfx(0)
  end
 
- -- X: use selected special coin
+ -- X: use special or end round
  if btnp(5) then
   if end_round_btn and not end_round_sel then
    end_round_sel=true
   elseif end_round_sel then
-   -- confirm end round
    finish_round()
    return
   elseif #inv>=inv_sel and inv_sel>0 then
@@ -459,7 +551,6 @@ function update_play()
    add(coins,c)
    del(dropping,dc)
    sfx(2)
-   -- activate on land if special
    if c.stype>0 and c.stype!=5 then
     activate_special(c)
    end
@@ -476,24 +567,28 @@ function update_play()
   if combo_buff_timer<=0 then combo_mult=1 end
  end
 
- -- pusher
  update_pusher()
  update_coins()
  check_scored()
 
- -- combo
+ -- combo decay
  if combo_timer>0 then
   combo_timer-=1
-  if combo_timer<=0 then combo=0 end
+  if combo_timer<=0 then
+   -- combo ended: check threshold
+   if combo>=combo_threshold and
+      not spinner_pending then
+    spinner_pending=true
+    local cmult=flr(combo/combo_threshold)
+    open_spinner(cmult)
+    combo=0
+    return
+   end
+   combo=0
+  end
  end
 
- -- show end round button when out of coins
- if coins_left<=0 and #dropping==0 and
-    #inv==0 then
-  end_round_btn=true
- end
- -- also allow ending early if only
- -- specials remain and no normals
+ -- show end round button
  if coins_left<=0 and #dropping==0 then
   end_round_btn=true
  end
@@ -501,25 +596,18 @@ end
 
 function finish_round()
  if round_score>=target then
-  -- success! gold reward
   gold+=flr(round_score/10)
   gold+=round*5
   open_shop()
  else
-  -- failed to reach target
   game_over()
  end
 end
 
-function open_shop()
- state="shop"
- t=0
- shop_sel=1
- shop_page="buy"
- -- generate 4 random items
+function gen_shop_items()
  shop_items={}
  local used={}
- for i=1,4 do
+ for i=1,3 do
   local st
   repeat
    st=flr(rnd(10))+1
@@ -533,28 +621,28 @@ function open_shop()
  end
 end
 
-function update_endround()
- if btnp(4) or btnp(5) then
-  if round_score>=target then
-   open_shop()
-  else
-   game_over()
-  end
- end
+function open_shop()
+ state="shop"
+ t=0
+ shop_sel=1
+ refresh_cost=refresh_base+round*5
+ gen_shop_items()
 end
 
 function update_shop()
- -- navigate
- if btnp(0) then
+ -- up/down navigation
+ if btnp(2) then
   shop_sel=max(1,shop_sel-1)
  end
- if btnp(1) then
-  shop_sel=min(#shop_items+1,shop_sel+1)
+ if btnp(3) then
+  -- 3 items + refresh + continue = 5 options
+  shop_sel=min(5,shop_sel+1)
  end
 
- -- buy or continue
+ -- buy/select
  if btnp(4) or btnp(5) then
-  if shop_sel<=#shop_items then
+  if shop_sel<=3 then
+   -- buy item
    local item=shop_items[shop_sel]
    if not item.sold and
       gold>=item.cost and
@@ -564,10 +652,20 @@ function update_shop()
     item.sold=true
     sfx(0)
    else
-    sfx(5) -- can't buy
+    sfx(5)
+   end
+  elseif shop_sel==4 then
+   -- refresh
+   if gold>=refresh_cost then
+    gold-=refresh_cost
+    refresh_cost=flr(refresh_cost*1.5)
+    gen_shop_items()
+    sfx(0)
+   else
+    sfx(5)
    end
   else
-   -- "continue" selected
+   -- continue
    round+=1
    start_round()
   end
@@ -576,8 +674,6 @@ end
 
 function update_pusher()
  local prev_y=push.y
-
- -- frozen pusher stays extended
  if push.frozen>0 then
   push.frozen-=1
   push.y=push.max_y
@@ -593,10 +689,8 @@ function update_pusher()
    sfx(1)
   end
  end
-
  local dy=push.y-prev_y
  local ptop=push.y-push.h
-
  for c in all(coins) do
   if c.on_pusher then
    c.y+=dy
@@ -679,9 +773,12 @@ function check_scored()
  for c in all(coins) do
   if not c.on_pusher and c.y>fb then
    local val=10
-   if c.stype==5 then val=50 end --goldfish
+   if c.stype==5 then val=50 end
    combo+=1
    combo_timer=90
+   if combo>combo_best then
+    combo_best=combo
+   end
    local cmult=min(combo,8)*combo_mult
    if combo>1 then
     val=val*cmult
@@ -690,7 +787,6 @@ function check_scored()
    round_score+=val
    total_scored+=1
    make_popup(c.x,fb-8,val)
-   -- gold from scored coins
    gold+=max(1,flr(val/20))
 
    add(falling,{x=c.x,y=fb+2,
@@ -738,6 +834,8 @@ function _draw()
   draw_play()
  elseif state=="shop" then
   draw_shop()
+ elseif state=="spinner" then
+  draw_spinner()
  elseif state=="gameover" then
   draw_gameover()
  end
@@ -793,57 +891,51 @@ function draw_big_cat(x,y)
  line(x+7,y+2,x+13,y+3,7)
 end
 
--- draw a coin (normal or special)
 function draw_coin_at(x,y,stype)
- -- shadow
  circfill(x+1,y+1,2.5,1)
- -- rim
  circfill(x,y,3,stype>0 and spc_cols[stype] or 4)
- -- body
  if stype==0 then
   circfill(x,y,2.5,9)
   circfill(x,y,2,10)
   line(x-1,y,x+1,y,12)
   pset(x-2,y,12) pset(x+2,y,12)
- elseif stype==1 then --bomb
+ elseif stype==1 then
   circfill(x,y,2.5,8)
   circfill(x,y,2,2)
   pset(x,y,10) pset(x-1,y-1,10)
- elseif stype==2 then --whirlpool
+ elseif stype==2 then
   circfill(x,y,2.5,12)
   circfill(x,y,2,1)
   pset(x,y,12)
-  pset(x+1,y-1,7)
- elseif stype==3 then --blackhole
+ elseif stype==3 then
   circfill(x,y,2.5,0)
-  circfill(x,y,2,0)
   circ(x,y,2,5)
   pset(x,y,5)
- elseif stype==4 then --magnet
+ elseif stype==4 then
   circfill(x,y,2.5,12)
   circfill(x,y,2,6)
   pset(x-1,y,8) pset(x+1,y,8)
- elseif stype==5 then --goldfish
+ elseif stype==5 then
   circfill(x,y,2.5,10)
   circfill(x,y,2,9)
   line(x-1,y,x+1,y,7)
- elseif stype==6 then --multiplier
+ elseif stype==6 then
   circfill(x,y,2.5,9)
   circfill(x,y,2,4)
   print("x",x-1,y-2,9)
- elseif stype==7 then --earthquake
+ elseif stype==7 then
   circfill(x,y,2.5,4)
   circfill(x,y,2,5)
   line(x-2,y,x+2,y,9)
- elseif stype==8 then --ice
+ elseif stype==8 then
   circfill(x,y,2.5,12)
   circfill(x,y,2,7)
   pset(x,y-1,12) pset(x,y+1,12)
- elseif stype==9 then --clone
+ elseif stype==9 then
   circfill(x,y,2.5,11)
   circfill(x,y,2,3)
   pset(x-1,y,11) pset(x+1,y,11)
- elseif stype==10 then --crown
+ elseif stype==10 then
   circfill(x,y,2.5,10)
   circfill(x,y,2,9)
   pset(x-1,y-2,10) pset(x,y-2,10)
@@ -854,44 +946,31 @@ end
 
 function draw_play()
  cls(0)
-
- -- machine surround
  rectfill(fl-5,ft-5,fr+5,fb+6,5)
  rectfill(fl-3,ft-3,fr+3,fb+4,13)
-
- -- field surface
  rectfill(fl,ft,fr,fb,3)
  for i=0,50 do
   local fx=(i*17)%(fw-2)+fl+1
   local fy=(i*29)%(fh-2)+ft+1
   pset(fx,fy,11)
  end
-
- -- back wall
  rectfill(fl,ft-2,fr,ft,4)
  rectfill(fl,ft-1,fr,ft,9)
- -- side walls
  rectfill(fl-1,ft,fl,fb,4)
  rectfill(fr,ft,fr+1,fb,4)
 
- -- pusher
  draw_pusher()
 
- -- coins shadows
  for c in all(coins) do
   circfill(c.x+1,c.y+1,2.5,1)
  end
- -- coins
  for c in all(coins) do
   draw_coin_at(c.x,c.y,c.stype)
  end
-
- -- dropping
  for dc in all(dropping) do
   draw_coin_at(dc.x,dc.y,dc.stype)
  end
 
- -- falling scored
  for fc in all(falling) do
   fc.y+=fc.vy fc.x+=fc.vx
   fc.vy+=0.08
@@ -901,7 +980,8 @@ function draw_play()
   if fc.life>0 then
    local h=fc.height
    if fc.life>15 then
-    circfill(fc.x+1+h*0.4,fc.y+1+h*0.4,2.5+h*0.2,1)
+    circfill(fc.x+1+h*0.4,
+     fc.y+1+h*0.4,2.5+h*0.2,1)
    end
    local cr=max(1,2.5-h*0.1)
    circfill(fc.x,fc.y-h,cr+0.5,4)
@@ -911,20 +991,15 @@ function draw_play()
   end
  end
 
- -- score zone
  local gc=({8,2,8,14})[flr(t/10)%4+1]
  rectfill(fl,fb+1,fr,fb+3,gc)
 
- -- dispenser
  draw_dispenser()
 
- -- particles
  for p in all(particles) do
   pset(p.x,p.y,
    p.life/p.max_life>0.5 and p.col or 5)
  end
-
- -- popups
  for p in all(popups) do
   local col=7
   if p.val>=30 then col=10 end
@@ -933,7 +1008,6 @@ function draw_play()
   print("+"..p.val,p.x-6,p.y,col)
  end
 
- -- hud + bottom panel
  draw_hud()
  draw_bottom_panel()
 end
@@ -955,7 +1029,6 @@ function draw_pusher()
  circfill(cx,ptop+push.h*0.4,2.5,8)
  circfill(cx,ptop+push.h*0.4,1.5,14)
  line(fl+3,py,fr-3,py,10)
- -- ice effect
  if push.frozen>0 then
   for i=0,3 do
    local fx=fl+10+i*25
@@ -1000,12 +1073,11 @@ function draw_dispenser()
 end
 
 function draw_hud()
- -- top bar: round, score/target, gold
  rectfill(0,0,127,6,0)
  print("\f7r"..round,1,1)
- local scol=round_score>=target and "\fb" or "\fa"
+ local scol=round_score>=target
+  and "\fb" or "\fa"
  print(scol..round_score.."\f6/"..target,16,1)
- -- buffs next to score
  local bx=70
  if mult_timer>0 then
   print("\f92x",bx,1) bx+=12
@@ -1016,26 +1088,30 @@ function draw_hud()
  print("\fcx"..coins_left,92,1)
  print("\fag"..gold,112,1)
 
- -- combo overlay (on field)
  if combo>1 and combo_timer>0 then
   local col=({7,10,9,8,11})[min(combo,5)]
-  print("x"..combo.."!",56,9,col)
+  local txt="x"..combo
+  if combo>=combo_threshold then
+   txt=txt.."!"
+  end
+  print(txt,56,9,col)
+  -- combo meter
+  local pct=min(1,combo/combo_threshold)
+  rectfill(44,8,44+40,8,5)
+  if pct>0 then
+   rectfill(44,8,44+flr(40*pct),8,
+    pct>=1 and 11 or 8)
+  end
  end
 end
 
 function draw_bottom_panel()
- -- everything below field: y=64 to y=127
- -- layout:
- -- y=64-69: progress bar
- -- y=71-82: inventory slots (5)
- -- y=84-89: description or end btn
- -- y=91-97: status line
-
  rectfill(0,64,127,127,0)
 
  -- progress bar (y=64-69)
  rectfill(1,64,126,69,1)
- local bw=min(124,flr(124*round_score/target))
+ local bw=min(124,
+  flr(124*round_score/target))
  if bw>0 then
   local bc=round_score>=target and 11 or 8
   rectfill(2,65,2+bw,68,bc)
@@ -1044,7 +1120,6 @@ function draw_bottom_panel()
  print(stxt,64-#stxt*2,65,7)
 
  -- inventory slots (y=71-82)
- -- 5 slots, each 24px wide, 11px tall
  print("\f6\x83\x84",1,72)
  for i=1,inv_max do
   local sx=10+(i-1)*22
@@ -1055,15 +1130,14 @@ function draw_bottom_panel()
   rect(sx,sy,sx+19,sy+11,
    sel and 7 or 5)
   if i<=#inv then
-   local item=inv[i]
-   draw_coin_at(sx+10,sy+5,item.type)
+   draw_coin_at(sx+10,sy+5,inv[i].type)
   else
    pset(sx+10,sy+5,5)
   end
  end
  print("\f6\x91",120,72)
 
- -- description or end-round btn (y=84)
+ -- desc or end-round (y=84-93)
  if end_round_btn then
   local bcol=end_round_sel and 11 or 6
   rectfill(36,84,91,93,
@@ -1077,10 +1151,68 @@ function draw_bottom_panel()
   print(spc_descs[item.type],2,92,6)
  end
 
- -- status line (y=98)
+ -- status (y=98)
  print("\f6#"..#coins.." on field",2,99)
  if round_score>=target and t%40<25 then
   print("\fbtarget reached!",50,99)
+ end
+end
+
+function draw_spinner()
+ cls(0)
+ -- title
+ rectfill(0,0,127,12,1)
+ print("\f7combo prize!",30,1)
+ print("\f6x"..spin_mult.." multiplier",32,7)
+
+ -- spinner box
+ rectfill(10,20,117,95,1)
+ rect(10,20,117,95,7)
+
+ -- draw 3 items vertically
+ for i=1,3 do
+  local iy=25+(i-1)*23
+  local item=spin_items[i]
+  local cur=flr(spin_sel)==i
+   or (spin_done and spin_result==i)
+  -- highlight current
+  if not spin_done and
+     flr(spin_sel)==i then
+   rectfill(13,iy,114,iy+19,2)
+  end
+  if spin_done and spin_result==i then
+   local fc=t%20<10 and 11 or 10
+   rectfill(13,iy,114,iy+19,3)
+   rect(13,iy,114,iy+19,fc)
+  else
+   rect(13,iy,114,iy+19,5)
+  end
+
+  -- icon
+  if item.kind=="coins" then
+   draw_coin_at(26,iy+10,0)
+   draw_coin_at(32,iy+10,0)
+  elseif item.kind=="gold" then
+   circfill(28,iy+10,4,10)
+   circfill(28,iy+10,3,9)
+   print("g",26,iy+8,7)
+  elseif item.kind=="special" then
+   draw_coin_at(28,iy+10,item.stype)
+  end
+
+  -- label
+  print(item.label,42,iy+7,item.col)
+ end
+
+ -- instruction
+ if spin_done then
+  local prize=spin_items[spin_result]
+  if t%40<28 then
+   print("\f7you won: "..prize.label,14,102)
+  end
+  print("\f6\x8e continue",40,112)
+ else
+  print("\f6spinning...",40,105)
  end
 end
 
@@ -1091,20 +1223,23 @@ function draw_shop()
  print("\f7cat's shop",36,1)
  print("\f6round "..round.." clear!",32,7)
 
- -- gold + inv (y=13)
+ -- gold + inv (y=14)
  print("\fagold:"..gold,4,14)
  print("\f6bag:"..#inv.."/"..inv_max,70,14)
 
- -- items: 4 rows, 18px each (y=21-92)
+ -- 3 items (y=22-76), 18px each
  for i=1,#shop_items do
   local item=shop_items[i]
-  local iy=21+(i-1)*18
+  local iy=22+(i-1)*18
   local sel=i==shop_sel
-  rectfill(4,iy,123,iy+15,sel and 1 or 0)
-  rect(4,iy,123,iy+15,sel and 7 or 5)
+  rectfill(4,iy,123,iy+15,
+   sel and 1 or 0)
+  rect(4,iy,123,iy+15,
+   sel and 7 or 5)
   draw_coin_at(14,iy+5,item.type)
   local nm=spc_names[item.type]
-  local col=item.sold and 5 or spc_cols[item.type]
+  local col=item.sold and 5
+   or spc_cols[item.type]
   print(nm,24,iy+1,col)
   print(spc_descs[item.type],24,iy+8,
    item.sold and 5 or 6)
@@ -1116,15 +1251,26 @@ function draw_shop()
   end
  end
 
- -- continue button (y=93-104)
- local cy=93
- local sel=shop_sel==#shop_items+1
- rectfill(30,cy,97,cy+10,sel and 3 or 1)
- rect(30,cy,97,cy+10,sel and 7 or 5)
- print("continue \x8e",38,cy+2,sel and 7 or 6)
+ -- refresh button (shop_sel==4)
+ local ry=78
+ local rsel=shop_sel==4
+ rectfill(4,ry,123,ry+12,rsel and 1 or 0)
+ rect(4,ry,123,ry+12,rsel and 7 or 5)
+ print("refresh items",14,ry+3,
+  rsel and 7 or 6)
+ print("g"..refresh_cost,100,ry+3,
+  gold>=refresh_cost and 10 or 8)
 
- -- controls (y=118)
- print("\f6\x83\x84 select  \x8e buy",20,118)
+ -- continue (shop_sel==5)
+ local cy=94
+ local csel=shop_sel==5
+ rectfill(30,cy,97,cy+10,csel and 3 or 1)
+ rect(30,cy,97,cy+10,csel and 7 or 5)
+ print("continue \x8e",38,cy+2,
+  csel and 7 or 6)
+
+ -- controls (y=112)
+ print("\f6\x8b\x83 select  \x8e buy",20,112)
 end
 
 function draw_gameover()
@@ -1132,16 +1278,13 @@ function draw_gameover()
  draw_big_cat(64,22)
  print("game over",38,46,8)
  print("game over",37,45,2)
-
  print("reached round "..round,28,60,7)
  print("round score: "..round_score,24,70,6)
  print("target was: "..target,28,78,
   round_score>=target and 11 or 8)
-
  if high_score>0 then
   print("best: "..high_score,40,92,5)
  end
-
  if t>60 and t%60<40 then
   print("\x8e\x91 continue",32,112,7)
  end
