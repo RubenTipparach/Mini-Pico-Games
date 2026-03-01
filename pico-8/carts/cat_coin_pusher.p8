@@ -3,131 +3,144 @@ version 42
 __lua__
 -- cat coin pusher
 -- by claude code
--- drop fish coins, push them
--- off the edge to score!
+
+-- a real coin pusher seen from
+-- above. pusher slides forward
+-- and back. coins that fall off
+-- the bottom edge score points!
 
 ----------------------------
 -- globals
 ----------------------------
-state="title"  -- title,play,gameover
+state="title"
 t=0
 
--- player
-dropper_x=64
-dropper_speed=1.5
-coins_left=30
+-- field layout (top-down view)
+-- wall is at the top
+-- player edge (scoring) at bottom
+-- pusher slides up/down
+fl=10      -- field left
+fr=118     -- field right
+ft=18      -- field top (back wall)
+fb=118     -- field bottom (player edge)
+fw=fr-fl   -- field width
+
+-- pusher (wide plate)
+push={
+ y=30,        -- current y of front edge
+ h=20,        -- pusher height
+ min_y=28,    -- closest to wall (retracted)
+ max_y=58,    -- furthest from wall (extended)
+ dir=1,       -- 1=pushing forward, -1=retracting
+ speed=0.35
+}
+
+-- dispenser (moves left-right at top)
+disp={
+ x=64,
+ dir=1,
+ speed=0.6
+}
+
+-- coins on the field
+coins={}
+-- coins that are dropping in (brief animation)
+dropping={}
+-- scored coins (falling off edge)
+falling={}
+-- particles
+particles={}
+-- score popups
+popups={}
+
+-- game vars
 score=0
 high_score=0
+coins_left=50
 combo=0
 combo_timer=0
-level=1
-coins_for_level=30
+total_scored=0
 
--- pusher
-pusher_y=40
-pusher_dir=1
-pusher_speed=0.4
-pusher_w=80
-pusher_h=10
-pusher_x=24
-
--- play field
-field_left=16
-field_right=112
-field_top=20
-field_bottom=120
-drop_zone_y=26
-
--- coins
-coins={}
-falling_coins={}
-scored_coins={}
-particles={}
-specials={}
-
--- cat animations
+-- cat anims
 cat_blink=0
 cat_ear_twitch=0
-paw_anim=0
-tail_wag=0
-
--- special items
-yarn_balls={}
-next_yarn=300
 
 ----------------------------
 -- helpers
 ----------------------------
-function make_coin(x,y,special)
- local c={
-  x=x,y=y,
-  vx=0,vy=0,
+function make_coin(x,y)
+ return {
+  x=x, y=y,
+  vx=0, vy=0,
   r=3,
-  grounded=false,
-  special=special or false,
-  wobble=rnd(1),
-  age=0
+  on_pusher=false
  }
- return c
 end
 
 function make_particle(x,y,col,life)
  add(particles,{
   x=x,y=y,
   vx=rnd(2)-1,
-  vy=-rnd(2)-0.5,
+  vy=rnd(2)-1,
   life=life or 20,
   max_life=life or 20,
   col=col
  })
 end
 
-function make_score_popup(x,y,val)
- add(scored_coins,{
+function make_popup(x,y,val)
+ add(popups,{
   x=x,y=y,
   val=val,
-  timer=40,
-  vy=-0.8
+  timer=45,
+  vy=-0.6
  })
 end
 
-function dist(a,b)
+function cdist(a,b)
  local dx=a.x-b.x
  local dy=a.y-b.y
  return sqrt(dx*dx+dy*dy)
 end
 
-function coin_coin_collide(a,b)
- local d=dist(a,b)
- if d < a.r+b.r and d>0 then
+function collide_coins(a,b)
+ local d=cdist(a,b)
+ local min_d=a.r+b.r
+ if d<min_d and d>0.1 then
   local nx=(b.x-a.x)/d
   local ny=(b.y-a.y)/d
-  local overlap=(a.r+b.r)-d
+  local overlap=min_d-d
+  -- separate
   a.x-=nx*overlap*0.5
   a.y-=ny*overlap*0.5
   b.x+=nx*overlap*0.5
   b.y+=ny*overlap*0.5
-  -- transfer velocity
-  local rel_vx=a.vx-b.vx
-  local rel_vy=a.vy-b.vy
-  local rel_dot=rel_vx*nx+rel_vy*ny
-  if rel_dot>0 then
-   a.vx-=nx*rel_dot*0.5
-   a.vy-=ny*rel_dot*0.5
-   b.vx+=nx*rel_dot*0.5
-   b.vy+=ny*rel_dot*0.5
+  -- velocity exchange
+  local dvx=a.vx-b.vx
+  local dvy=a.vy-b.vy
+  local dot=dvx*nx+dvy*ny
+  if dot>0 then
+   a.vx-=nx*dot*0.45
+   a.vy-=ny*dot*0.45
+   b.vx+=nx*dot*0.45
+   b.vy+=ny*dot*0.45
   end
-  sfx(2)
-  return true
  end
- return false
+end
+
+-- is point inside pusher?
+function on_pusher(x,y,r)
+ local ptop=push.y-push.h
+ return x>fl and x<fr
+    and y-r<push.y
+    and y+r>ptop
 end
 
 ----------------------------
 -- init
 ----------------------------
 function _init()
- cartdata("cat_coin_pusher_1")
+ cartdata("catcoinpush_v2")
  high_score=dget(0)
  start_title()
 end
@@ -143,27 +156,47 @@ function start_game()
  score=0
  combo=0
  combo_timer=0
- level=1
- coins_left=coins_for_level
+ total_scored=0
+ coins_left=50
  coins={}
- falling_coins={}
- scored_coins={}
+ dropping={}
+ falling={}
  particles={}
- yarn_balls={}
- next_yarn=300
- pusher_y=40
- pusher_dir=1
- pusher_speed=0.4
- dropper_x=64
- -- seed some starting coins
- for i=1,8 do
-  local c=make_coin(
-   field_left+8+rnd(field_right-field_left-16),
-   50+rnd(50),
-   false
-  )
-  c.grounded=true
-  add(coins,c)
+ popups={}
+ push.y=30
+ push.dir=1
+ disp.x=64
+ disp.dir=1
+
+ -- seed ~50 coins on the field
+ -- spread them between pusher
+ -- front and the bottom edge
+ seed_coins(50)
+end
+
+function seed_coins(n)
+ for i=1,n do
+  local attempts=0
+  local placed=false
+  while not placed and attempts<20 do
+   local cx=fl+6+rnd(fw-12)
+   local cy=push.max_y+8+rnd(fb-push.max_y-16)
+   -- check no overlap with existing
+   local ok=true
+   for c in all(coins) do
+    local dx=cx-c.x
+    local dy=cy-c.y
+    if sqrt(dx*dx+dy*dy)<7 then
+     ok=false
+     break
+    end
+   end
+   if ok then
+    add(coins,make_coin(cx,cy))
+    placed=true
+   end
+   attempts+=1
+  end
  end
 end
 
@@ -172,7 +205,7 @@ end
 ----------------------------
 function _update60()
  t+=1
- update_cat_anims()
+ update_cat()
 
  if state=="title" then
   update_title()
@@ -182,21 +215,35 @@ function _update60()
   update_gameover()
  end
 
- update_particles()
+ -- particles
+ for p in all(particles) do
+  p.x+=p.vx
+  p.y+=p.vy
+  p.vy+=0.03
+  p.life-=1
+  if p.life<=0 then del(particles,p) end
+ end
+
+ -- popups
+ for p in all(popups) do
+  p.y+=p.vy
+  p.timer-=1
+  if p.timer<=0 then del(popups,p) end
+ end
 end
 
-function update_cat_anims()
- -- blink
- if rnd(200)<1 then cat_blink=8 end
+function update_cat()
+ if rnd(200)<1 then cat_blink=10 end
  if cat_blink>0 then cat_blink-=1 end
- -- ear twitch
- if rnd(300)<1 then cat_ear_twitch=12 end
+ if rnd(300)<1 then cat_ear_twitch=15 end
  if cat_ear_twitch>0 then cat_ear_twitch-=1 end
- -- tail
- tail_wag=sin(t/60)*3
 end
 
 function update_title()
+ -- auto-move dispenser on title
+ disp.x+=disp.dir*0.5
+ if disp.x>fr-6 then disp.dir=-1 end
+ if disp.x<fl+6 then disp.dir=1 end
  if btnp(4) or btnp(5) then
   start_game()
   sfx(0)
@@ -204,234 +251,264 @@ function update_title()
 end
 
 function update_play()
- -- dropper movement
- if btn(0) then dropper_x-=dropper_speed end
- if btn(1) then dropper_x+=dropper_speed end
- dropper_x=mid(field_left+4,dropper_x,field_right-4)
+ -- dispenser auto-moves
+ disp.x+=disp.dir*disp.speed
+ if disp.x>=fr-6 then
+  disp.dir=-1
+  disp.x=fr-6
+ end
+ if disp.x<=fl+6 then
+  disp.dir=1
+  disp.x=fl+6
+ end
 
- -- drop coin
+ -- player can adjust speed
+ -- or press to drop
  if btnp(4) and coins_left>0 then
-  drop_coin(dropper_x,drop_zone_y,false)
+  -- drop a coin at dispenser pos
+  -- it lands just below the wall
+  local dc={
+   x=disp.x,
+   y=ft-4,
+   target_y=ft+4+rnd(4),
+   timer=12
+  }
+  add(dropping,dc)
   coins_left-=1
   sfx(0)
  end
 
- -- drop special (yarn ball) with O button
- if btnp(5) and #yarn_balls>0 then
-  drop_coin(dropper_x,drop_zone_y,true)
-  del(yarn_balls,yarn_balls[#yarn_balls])
-  sfx(1)
+ -- speed up/slow dispenser
+ if btn(0) then
+  disp.speed=max(0.2,disp.speed-0.02)
+ end
+ if btn(1) then
+  disp.speed=min(1.5,disp.speed+0.02)
  end
 
- -- earn yarn balls over time
- if t%next_yarn==0 and #yarn_balls<3 then
-  add(yarn_balls,true)
-  next_yarn=max(180,next_yarn-20)
-  sfx(3)
+ -- update dropping coins
+ for dc in all(dropping) do
+  -- animate coin falling onto field
+  dc.y+=(dc.target_y-dc.y)*0.3
+  dc.timer-=1
+  if dc.timer<=0 then
+   -- becomes a real coin on field
+   local c=make_coin(dc.x,dc.target_y)
+   -- check if it landed on pusher
+   if dc.target_y<push.y and dc.target_y>(push.y-push.h) then
+    c.on_pusher=true
+   end
+   add(coins,c)
+   del(dropping,dc)
+   sfx(2)
+  end
  end
 
  -- update pusher
  update_pusher()
 
- -- update falling coins
- for c in all(falling_coins) do
-  c.vy+=0.15
-  c.y+=c.vy
-  c.x+=c.vx
-  if c.y>=pusher_y+pusher_h+c.r then
-   c.grounded=true
-   c.vy=0.5
-   c.vx*=0.5
-   add(coins,c)
-   del(falling_coins,c)
-   sfx(2)
-  end
- end
-
- -- update grounded coins
+ -- update coins physics
  update_coins()
 
- -- check scoring
+ -- check coins falling off edge
  check_scored()
-
- -- update score popups
- for s in all(scored_coins) do
-  s.timer-=1
-  s.y+=s.vy
-  if s.timer<=0 then
-   del(scored_coins,s)
-  end
- end
 
  -- combo timer
  if combo_timer>0 then
   combo_timer-=1
-  if combo_timer<=0 then
-   combo=0
-  end
+  if combo_timer<=0 then combo=0 end
  end
 
- -- level up
- if coins_left<=0 and #falling_coins==0 then
-  -- check if all coins settled
-  local all_slow=true
+ -- game over when out of coins
+ -- to drop and field is settled
+ if coins_left<=0 and #dropping==0 then
+  local any_moving=false
   for c in all(coins) do
-   if abs(c.vx)>0.1 or abs(c.vy)>0.1 then
-    all_slow=false
+   if abs(c.vx)>0.05 or abs(c.vy)>0.05 then
+    any_moving=true
     break
    end
   end
-  if all_slow then
-   if #coins==0 then
-    -- perfect clear bonus!
-    score+=100
-    make_score_popup(64,60,100)
-   end
-   level+=1
-   if level>10 then
+  -- wait a bit for last pushes
+  if not any_moving and t>120 then
+   -- check if pusher did a full
+   -- cycle with no movement
+   if push.dir==-1 and push.y<push.min_y+2 then
     game_over()
-   else
-    coins_left=coins_for_level+level*3
-    pusher_speed=min(0.8,0.4+level*0.04)
-    sfx(4)
    end
   end
  end
 end
 
 function update_pusher()
- pusher_y+=pusher_dir*pusher_speed
- if pusher_y>70 then
-  pusher_dir=-1
+ local prev_y=push.y
+
+ push.y+=push.dir*push.speed
+ if push.y>=push.max_y then
+  push.y=push.max_y
+  push.dir=-1
+ end
+ if push.y<=push.min_y then
+  push.y=push.min_y
+  push.dir=1
   sfx(1)
  end
- if pusher_y<35 then
-  pusher_dir=1
- end
 
- -- paw animation follows pusher
- if pusher_dir==1 then
-  paw_anim=min(paw_anim+0.1,1)
- else
-  paw_anim=max(paw_anim-0.1,0)
- end
-end
+ local dy=push.y-prev_y
+ local ptop=push.y-push.h
 
-function drop_coin(x,y,special)
- local c=make_coin(x,y,special)
- c.vy=0.5
- c.vx=(rnd(0.6)-0.3)
- add(falling_coins,c)
+ -- pusher interacts with coins
+ for c in all(coins) do
+  -- case 1: coin is ON TOP of pusher
+  -- (between pusher top and pusher bottom)
+  if c.on_pusher then
+   -- coin rides with pusher
+   c.y+=dy
+
+   -- when retracting (moving up toward wall),
+   -- coins on pusher hit the back wall
+   if push.dir==-1 then
+    if c.y-c.r<=ft then
+     -- wall pushes coin off the front
+     c.y=ft+c.r
+     c.vy=0.5+rnd(0.3)
+     c.vx=(rnd(1)-0.5)*0.3
+     c.on_pusher=false
+    end
+   end
+
+   -- if coin slides past front of pusher
+   if c.y+c.r>push.y then
+    c.on_pusher=false
+    c.y=push.y+c.r
+    c.vy=0.3
+   end
+
+   -- if coin slides behind pusher
+   if c.y-c.r<ptop then
+    c.on_pusher=false
+    c.y=ptop-c.r
+   end
+
+  else
+   -- case 2: coin is in front of pusher
+   -- pusher front edge pushes coins forward
+   if push.dir==1 and dy>0 then
+    -- check if coin is in contact
+    -- with the front edge of pusher
+    if c.y-c.r<push.y and
+       c.y+c.r>push.y-4 and
+       c.x>fl and c.x<fr then
+     -- push it forward
+     c.vy+=dy*0.8
+     c.y=push.y+c.r
+     c.vx+=(rnd(0.2)-0.1)
+    end
+   end
+
+   -- case 3: coin gets caught by
+   -- retracting pusher (scooped on top)
+   if c.y>ptop and c.y<push.y and
+      c.x>fl and c.x<fr then
+    if abs(c.vy)<0.3 then
+     c.on_pusher=true
+     c.vx*=0.5
+     c.vy=0
+    end
+   end
+  end
+ end
 end
 
 function update_coins()
  for c in all(coins) do
-  c.age+=1
+  if not c.on_pusher then
+   -- apply velocity
+   c.x+=c.vx
+   c.y+=c.vy
 
-  -- pusher pushes coins
-  if c.y-c.r < pusher_y+pusher_h and
-     c.y+c.r > pusher_y and
-     c.x > pusher_x and
-     c.x < pusher_x+pusher_w then
-   if pusher_dir==1 then
-    c.vy+=0.3+rnd(0.2)
-    c.vx+=(rnd(0.4)-0.2)
-    c.y=pusher_y+pusher_h+c.r
+   -- friction
+   c.vx*=0.92
+   c.vy*=0.92
+
+   -- left wall
+   if c.x<fl+c.r then
+    c.x=fl+c.r
+    c.vx=abs(c.vx)*0.3
+   end
+   -- right wall
+   if c.x>fr-c.r then
+    c.x=fr-c.r
+    c.vx=-abs(c.vx)*0.3
+   end
+   -- back wall (top)
+   if c.y<ft+c.r then
+    c.y=ft+c.r
+    c.vy=abs(c.vy)*0.3
+   end
+
+   -- don't let coins overlap
+   -- with pusher body if not on it
+   local ptop=push.y-push.h
+   if c.y-c.r<push.y and
+      c.y+c.r>ptop and
+      c.x>fl and c.x<fr then
+    -- push out the front
+    if c.y>push.y-push.h/2 then
+     c.y=push.y+c.r
+     c.vy=max(c.vy,0.1)
+    end
    end
   end
-
-  -- physics
-  c.vy+=0.02  -- slight gravity
-  c.x+=c.vx
-  c.y+=c.vy
-
-  -- friction
-  c.vx*=0.96
-  c.vy*=0.96
-
-  -- walls
-  if c.x<field_left+c.r then
-   c.x=field_left+c.r
-   c.vx=abs(c.vx)*0.5
-  end
-  if c.x>field_right-c.r then
-   c.x=field_right-c.r
-   c.vx=-abs(c.vx)*0.5
-  end
-
-  -- top wall
-  if c.y<field_top+c.r then
-   c.y=field_top+c.r
-   c.vy=abs(c.vy)*0.3
-  end
-
-  -- wobble
-  c.wobble+=0.05
  end
 
- -- coin-coin collisions
- for i=1,#coins do
-  for j=i+1,#coins do
-   coin_coin_collide(coins[i],coins[j])
+ -- coin-coin collisions (multiple passes)
+ for pass=1,2 do
+  for i=1,#coins do
+   for j=i+1,#coins do
+    collide_coins(coins[i],coins[j])
+   end
   end
  end
 end
 
 function check_scored()
  for c in all(coins) do
-  if c.y > field_bottom+c.r then
-   -- scored!
+  if not c.on_pusher and c.y>fb then
+   -- coin fell off the player edge!
    local val=10
-   if c.special then
-    val=50
-    -- yarn ball: push all nearby coins
-    for other in all(coins) do
-     if other!=c then
-      local d=dist(c,other)
-      if d<30 then
-       other.vy+=2
-       other.vx+=(other.x-c.x)*0.1
-       make_particle(other.x,other.y,10,15)
-      end
-     end
-    end
-   end
-
-   -- combo
    combo+=1
-   combo_timer=60
+   combo_timer=90
    if combo>1 then
-    val=val*min(combo,5)
+    val=val*min(combo,8)
    end
-
    score+=val
-   make_score_popup(c.x,field_bottom,val)
-   del(coins,c)
+   total_scored+=1
+   make_popup(c.x,fb-4,val)
+
+   -- falling animation
+   add(falling,{
+    x=c.x,y=c.y,
+    vy=1+rnd(1),
+    vx=rnd(1)-0.5,
+    rot=rnd(1),
+    life=30
+   })
 
    -- particles
-   for i=1,6 do
-    local col=c.special and 11 or 9
-    make_particle(c.x,field_bottom,col,25)
+   for k=1,5 do
+    make_particle(c.x,fb,9,20)
    end
-   sfx(3)
-  end
- end
-end
 
-function update_particles()
- for p in all(particles) do
-  p.x+=p.vx
-  p.y+=p.vy
-  p.vy+=0.05
-  p.life-=1
-  if p.life<=0 then
-   del(particles,p)
+   del(coins,c)
+   sfx(3)
   end
  end
 end
 
 function game_over()
  state="gameover"
+ t=0
  if score>high_score then
   high_score=score
   dset(0,high_score)
@@ -449,7 +526,7 @@ end
 -- drawing
 ----------------------------
 function _draw()
- cls(0)
+ cls(1)
  if state=="title" then
   draw_title()
  elseif state=="play" then
@@ -460,73 +537,64 @@ function _draw()
 end
 
 function draw_title()
- -- starry background
- for i=0,30 do
-  local sx=(i*37+t)%128
-  local sy=(i*53)%128
-  local col=({1,5,6,13})[i%4+1]
-  pset(sx,sy,col)
+ cls(0)
+ -- stars
+ for i=0,40 do
+  local sx=(i*37+t*0.3)%128
+  local sy=(i*53+t*0.1)%128
+  pset(sx,sy,({1,5,6,13})[i%4+1])
  end
 
- -- title
- local ty=25+sin(t/90)*4
+ local ty=20+sin(t/90)*3
 
  -- big cat face
- draw_big_cat(64,ty-2)
+ draw_big_cat(64,ty)
 
- -- title text with shadow
- print("cat coin",35,ty+22,0)
- print("cat coin",34,ty+21,10)
- print("pusher",42,ty+30,0)
- print("pusher",41,ty+29,9)
+ -- title
+ print("cat coin",35,ty+24,0)
+ print("cat coin",34,ty+23,10)
+ print("pusher",42,ty+32,0)
+ print("pusher",41,ty+31,9)
 
- -- bouncing coin
- local cy=ty+46+sin(t/30)*3
- draw_coin(64,cy,false)
+ -- bouncing fish coin
+ local cy=ty+48+sin(t/25)*4
+ draw_fish_coin(64,cy)
 
- -- instructions
+ -- controls
  if t%60<40 then
   print("\x8e\x91 to start",36,100,7)
  end
- print("\x83\x84:move \x8e:drop",22,110,6)
- print("hi-score: "..high_score,28,118,5)
+ print("\x8e drop coin",38,110,6)
+ print("\x83\x84 dispenser speed",18,118,6)
+ print("hi-score: "..high_score,28,125,5)
 end
 
 function draw_big_cat(x,y)
  -- head
  circfill(x,y,14,4)
  circfill(x,y,13,10)
-
  -- ears
- local ear_off=cat_ear_twitch>0 and 1 or 0
- -- left ear
- line(x-10,y-8,x-14,y-18+ear_off,10)
- line(x-14,y-18+ear_off,x-6,y-12,10)
- line(x-11,y-10,x-13,y-16+ear_off,8)
- -- right ear
- line(x+10,y-8,x+14,y-18+ear_off,10)
- line(x+14,y-18+ear_off,x+6,y-12,10)
- line(x+11,y-10,x+13,y-16+ear_off,8)
-
+ local eo=cat_ear_twitch>0 and 1 or 0
+ line(x-10,y-8,x-14,y-18+eo,10)
+ line(x-14,y-18+eo,x-6,y-12,10)
+ line(x-11,y-10,x-13,y-16+eo,8)
+ line(x+10,y-8,x+14,y-18+eo,10)
+ line(x+14,y-18+eo,x+6,y-12,10)
+ line(x+11,y-10,x+13,y-16+eo,8)
  -- eyes
- if cat_blink>4 then
+ if cat_blink>5 then
   line(x-5,y-2,x-3,y-2,0)
   line(x+3,y-2,x+5,y-2,0)
  else
   circfill(x-5,y-2,2,0)
   circfill(x+5,y-2,2,0)
-  -- pupils
   pset(x-5,y-2,7)
   pset(x+5,y-2,7)
  end
-
- -- nose
+ -- nose + mouth
  pset(x,y+2,8)
-
- -- mouth
  line(x-2,y+4,x,y+3,8)
  line(x,y+3,x+2,y+4,8)
-
  -- whiskers
  line(x-14,y,x-7,y+1,7)
  line(x-13,y+3,x-7,y+2,7)
@@ -535,245 +603,257 @@ function draw_big_cat(x,y)
 end
 
 function draw_play()
- -- background
- rectfill(0,0,127,127,1)
+ -- dark background
+ cls(0)
 
- -- play field bg
- rectfill(field_left-1,field_top-1,field_right+1,field_bottom+6,0)
+ -- machine body (dark gray surround)
+ rectfill(fl-6,ft-6,fr+6,fb+10,5)
+ rectfill(fl-4,ft-4,fr+4,fb+8,13)
 
- -- field border
- rect(field_left-2,field_top-2,field_right+2,field_bottom+7,5)
-
- -- scoring zone glow
- local glow_col=2+flr(t/8)%2
- rectfill(field_left-1,field_bottom,field_right+1,field_bottom+6,glow_col)
- print("score zone",field_left+14,field_bottom+1,7)
-
- -- side walls with pattern
- for y=field_top,field_bottom,4 do
-  local col=(y/4)%2==0 and 4 or 9
-  rectfill(field_left-4,y,field_left-2,y+3,col)
-  rectfill(field_right+2,y,field_right+4,y+3,col)
+ -- field surface (green felt)
+ rectfill(fl,ft,fr,fb,3)
+ -- felt texture dots
+ for i=0,60 do
+  local fx=(i*17)%(fw-2)+fl+1
+  local fy=(i*29)%(fb-ft-2)+ft+1
+  pset(fx,fy,11)
  end
 
- -- draw pusher (cat paw)
+ -- back wall (top edge)
+ rectfill(fl,ft-3,fr,ft,4)
+ rectfill(fl,ft-2,fr,ft-1,9)
+
+ -- side walls
+ rectfill(fl-2,ft,fl-1,fb,4)
+ rectfill(fr+1,ft,fr+2,fb,4)
+
+ -- draw pusher
  draw_pusher()
 
- -- draw coins
+ -- draw coins on field
  for c in all(coins) do
-  draw_coin(c.x,c.y,c.special)
+  draw_fish_coin(c.x,c.y)
  end
- for c in all(falling_coins) do
-  draw_coin(c.x,c.y,c.special)
+
+ -- draw dropping coins (incoming)
+ for dc in all(dropping) do
+  -- shadow
+  circfill(dc.x+1,dc.y+1,4,1)
+  draw_fish_coin(dc.x,dc.y)
  end
+
+ -- falling scored coins
+ for fc in all(falling) do
+  fc.y+=fc.vy
+  fc.x+=fc.vx
+  fc.vy+=0.15
+  fc.rot+=0.05
+  fc.life-=1
+  if fc.life>0 then
+   local col=fc.life>15 and 10 or 9
+   circfill(fc.x,fc.y,2,col)
+  else
+   del(falling,fc)
+  end
+ end
+
+ -- player edge (score zone)
+ -- glowing bottom edge
+ local gc=({8,2,8,14})[flr(t/10)%4+1]
+ rectfill(fl,fb+1,fr,fb+4,gc)
+ -- arrow indicators
+ for i=0,4 do
+  local ax=fl+10+i*(fw-20)/4
+  local ay=fb+2
+  pset(ax,ay,7)
+  pset(ax-1,ay-1,7)
+  pset(ax+1,ay-1,7)
+ end
+
+ -- dispenser at top
+ draw_dispenser()
 
  -- particles
  for p in all(particles) do
   local a=p.life/p.max_life
-  if a>0.5 then
-   pset(p.x,p.y,p.col)
-  else
-   pset(p.x,p.y,1)
-  end
+  pset(p.x,p.y,a>0.5 and p.col or 5)
  end
 
- -- score popups
- for s in all(scored_coins) do
+ -- popups
+ for p in all(popups) do
   local col=7
-  if s.val>=50 then col=10 end
-  if s.val>=100 then col=11 end
-  print("+"..s.val,s.x-6,s.y,col)
+  if p.val>=30 then col=10 end
+  if p.val>=80 then col=11 end
+  -- shadow
+  print("+"..p.val,p.x-5,p.y+1,0)
+  print("+"..p.val,p.x-6,p.y,col)
  end
-
- -- dropper (small cat at top)
- draw_dropper()
 
  -- hud
  draw_hud()
 end
 
 function draw_pusher()
- local px=pusher_x
- local py=pusher_y
- local pw=pusher_w
- local ph=pusher_h
+ local py=push.y
+ local ptop=py-push.h
 
- -- paw pad (main body)
- rectfill(px+2,py,px+pw-2,py+ph,4)
- rectfill(px,py+2,px+pw,py+ph-2,4)
+ -- pusher shadow
+ rectfill(fl+2,ptop+2,fr-2,py+2,1)
 
- -- paw outline
- rect(px+2,py,px+pw-2,py+ph,9)
+ -- pusher body (cat paw!)
+ rectfill(fl+1,ptop,fr-1,py,4)
+ rect(fl+1,ptop,fr-1,py,9)
 
- -- toe beans!
- local bean_y=py+3
- local spacing=pw/5
+ -- paw pad pattern
+ -- four toe beans along front edge
+ local bw=(fr-fl-8)/5
  for i=1,4 do
-  local bx=px+spacing*i
-  circfill(bx,bean_y,2,8)
-  circfill(bx,bean_y,1,2)
+  local bx=fl+4+i*bw+bw/2
+  local by=py-3
+  circfill(bx,by,2.5,8)
+  circfill(bx,by,1.5,14)
  end
 
  -- big central pad
- circfill(px+pw/2,py+ph-3,3,8)
- circfill(px+pw/2,py+ph-3,2,2)
+ local cx=(fl+fr)/2
+ circfill(cx,ptop+push.h*0.35,4,8)
+ circfill(cx,ptop+push.h*0.35,3,14)
 
- -- push direction indicator
- if pusher_dir==1 then
-  local arrow_y=py+ph+2
-  for i=0,2 do
-   pset(px+pw/2-i,arrow_y+i,7)
-   pset(px+pw/2+i,arrow_y+i,7)
-  end
+ -- fur texture on pusher
+ for i=0,8 do
+  local fx=fl+6+i*((fr-fl-12)/8)
+  local fy=ptop+4
+  pset(fx,fy,9)
  end
+
+ -- front edge highlight
+ line(fl+3,py,fr-3,py,10)
 end
 
-function draw_coin(x,y,special)
- if special then
-  -- yarn ball
-  circfill(x,y,4,11)
-  circfill(x,y,3,3)
-  -- yarn pattern
-  local a=t/15
-  pset(x+cos(a)*2,y+sin(a)*2,11)
-  pset(x+cos(a+0.33)*2,y+sin(a+0.33)*2,11)
-  pset(x+cos(a+0.66)*2,y+sin(a+0.66)*2,11)
-  -- string
-  line(x+3,y-1,x+5,y-3,11)
- else
-  -- fish coin
-  circfill(x,y,3,9)
-  circfill(x,y,2,10)
+function draw_fish_coin(x,y)
+ -- coin body
+ circfill(x,y,3,9)
+ circfill(x,y,2.5,10)
 
-  -- fish silhouette on coin
-  local fx=x
-  local fy=y
-  -- body
-  line(fx-1,fy,fx+1,fy,12)
-  pset(fx+2,fy-1,12)
-  pset(fx+2,fy+1,12)
-  -- tail
-  pset(fx-2,fy-1,12)
-  pset(fx-2,fy+1,12)
+ -- fish design on coin
+ -- body
+ line(x-1,y,x+1,y,12)
+ -- tail
+ pset(x-2,y-1,12)
+ pset(x-2,y+1,12)
+ -- head
+ pset(x+2,y,12)
 
-  -- shine
-  pset(x-1,y-1,7)
- end
+ -- shine
+ pset(x-1,y-1,7)
 end
 
-function draw_dropper()
- local x=dropper_x
- local y=12
+function draw_dispenser()
+ local x=disp.x
+ local y=ft-4
 
- -- cat head (small)
- circfill(x,y,5,10)
+ -- dispenser track
+ rectfill(fl,ft-8,fr,ft-5,5)
+ line(fl,ft-5,fr,ft-5,13)
+
+ -- cat dispenser head
+ -- body
+ circfill(x,y-4,6,10)
  -- ears
- line(x-4,y-3,x-6,y-7,10)
- line(x-6,y-7,x-2,y-5,10)
- line(x+4,y-3,x+6,y-7,10)
- line(x+6,y-7,x+2,y-5,10)
+ local eo=cat_ear_twitch>0 and 1 or 0
+ line(x-5,y-8,x-7,y-13+eo,10)
+ line(x-7,y-13+eo,x-3,y-9,10)
+ line(x+5,y-8,x+7,y-13+eo,10)
+ line(x+7,y-13+eo,x+3,y-9,10)
  -- inner ears
- pset(x-4,y-5,8)
- pset(x+4,y-5,8)
+ pset(x-5,y-11+eo,8)
+ pset(x+5,y-11+eo,8)
  -- eyes
- if cat_blink>4 then
-  line(x-2,y-1,x-1,y-1,0)
-  line(x+1,y-1,x+2,y-1,0)
+ if cat_blink>5 then
+  line(x-3,y-5,x-1,y-5,0)
+  line(x+1,y-5,x+3,y-5,0)
  else
-  pset(x-2,y-1,0)
-  pset(x+2,y-1,0)
+  pset(x-2,y-5,0)
+  pset(x+2,y-5,0)
  end
  -- nose
- pset(x,y+1,8)
- -- mouth
- pset(x-1,y+2,8)
- pset(x+1,y+2,8)
+ pset(x,y-3,8)
+ -- mouth/opening for coins
+ rectfill(x-2,y-1,x+2,y+1,0)
+ pset(x-1,y,9)
+ pset(x+1,y,9)
 
- -- holding coin indicator
+ -- coin ready indicator
  if coins_left>0 then
-  draw_coin(x,y+8,false)
-  -- dotted line showing drop path
-  for dy=y+12,drop_zone_y,4 do
-   if (dy/4)%2==0 then
-    pset(x,dy,6)
-   end
-  end
+  draw_fish_coin(x,y-2)
+ end
+
+ -- direction arrow
+ if disp.dir==1 then
+  pset(x+8,y-4,7)
+  pset(x+7,y-5,7)
+  pset(x+7,y-3,7)
+ else
+  pset(x-8,y-4,7)
+  pset(x-7,y-5,7)
+  pset(x-7,y-3,7)
  end
 end
 
 function draw_hud()
- -- top bar bg
- rectfill(0,0,127,6,0)
+ -- top bar
+ rectfill(0,0,127,7,0)
 
  -- score
- print("score:"..score,1,1,7)
+ print("\f7score:\fa"..score,1,1)
 
  -- coins left
- print("\x97"..coins_left,80,1,10)
+ print("\fc\x97\fa"..coins_left,70,1)
 
- -- level
- print("lv"..level,108,1,9)
+ -- field count
+ print("\fd#\f6"..#coins,98,1)
 
- -- yarn ball indicators (bottom)
- for i=1,#yarn_balls do
-  circfill(118+i*8-8,124,3,11)
-  circfill(118+i*8-8,124,2,3)
- end
- if #yarn_balls>0 then
-  print("\x91",110,122,6)
- end
-
- -- combo display
+ -- combo
  if combo>1 and combo_timer>0 then
-  local cx=64
-  local cy=field_top+4
-  local txt="x"..combo.." combo!"
   local col=({7,10,9,8,11})[min(combo,5)]
-  print(txt,cx-#txt*2,cy,col)
+  local txt="x"..combo.."!"
+  print(txt,56,10,col)
  end
 
- -- coins on field indicator
+ -- bottom bar
  rectfill(0,125,127,127,0)
- print("field:"..#coins,1,125,13)
+ print("\f6\x83slow \x84fast",1,126)
+ print("\f5hi:"..high_score,88,126)
 end
 
 function draw_gameover()
- -- dark bg
  cls(0)
 
- -- sad cat
- draw_big_cat(64,30)
+ draw_big_cat(64,28)
 
- -- game over text
- print("game over",38,55,8)
- print("game over",37,54,2)
+ -- game over
+ print("game over",38,53,8)
+ print("game over",37,52,2)
 
- -- results
- print("final score",36,68,7)
- print(""..score,56,76,10)
+ print("final score",36,66,7)
+ local stxt=""..score
+ print(stxt,64-#stxt*2,76,10)
+
+ print("coins scored: "..total_scored,22,88,6)
 
  if score>=high_score and score>0 then
-  -- new record!
   if t%30<20 then
-   print("new record!",36,88,11)
+   print("new record!",36,100,11)
   end
  else
-  print("best: "..high_score,40,88,5)
+  print("best: "..high_score,40,100,5)
  end
 
- print("level reached: "..level,28,98,6)
-
- if t>60 then
-  if t%60<40 then
-   print("\x8e\x91 continue",32,115,7)
-  end
+ if t>60 and t%60<40 then
+  print("\x8e\x91 continue",32,115,7)
  end
 end
 
-----------------------------
--- sfx data placeholder
--- (pico-8 beeps)
-----------------------------
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
