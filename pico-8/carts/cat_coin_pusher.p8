@@ -196,7 +196,7 @@ function start_round()
  disp.dir=1
  end_round_btn=false
  end_round_sel=false
- seed_coins(50+round*8)
+ seed_coins(100+round*10)
 end
 
 function seed_coins(n)
@@ -933,9 +933,9 @@ function draw_play()
   print("+"..p.val,p.x-6,p.y,col)
  end
 
- -- hud + inventory
+ -- hud + bottom panel
  draw_hud()
- draw_inventory()
+ draw_bottom_panel()
 end
 
 function draw_pusher()
@@ -1000,157 +1000,131 @@ function draw_dispenser()
 end
 
 function draw_hud()
- -- top bar
+ -- top bar: round, score/target, gold
  rectfill(0,0,127,6,0)
- -- round
  print("\f7r"..round,1,1)
- -- score vs target
  local scol=round_score>=target and "\fb" or "\fa"
  print(scol..round_score.."\f6/"..target,16,1)
- -- coins left
- print("\fcx"..coins_left,82,1)
- -- gold
- print("\fag"..gold,104,1)
-
- -- buffs
+ -- buffs next to score
+ local bx=70
  if mult_timer>0 then
-  print("\f92x",70,1)
+  print("\f92x",bx,1) bx+=12
  end
  if combo_buff_timer>0 then
-  print("\fa3c",60,1)
+  print("\fa3c",bx,1) bx+=12
  end
+ print("\fcx"..coins_left,92,1)
+ print("\fag"..gold,112,1)
 
- -- combo
+ -- combo overlay (on field)
  if combo>1 and combo_timer>0 then
   local col=({7,10,9,8,11})[min(combo,5)]
-  print("x"..combo.."!",58,9,col)
- end
-
- -- end round button
- if end_round_btn then
-  local bx=50
-  local by=fb+6
-  local bcol=end_round_sel and 11 or 6
-  rectfill(bx,by,bx+28,by+7,
-   end_round_sel and 3 or 1)
-  rect(bx,by,bx+28,by+7,bcol)
-  print("end\x91",bx+4,by+1,bcol)
+  print("x"..combo.."!",56,9,col)
  end
 end
 
-function draw_inventory()
- -- inventory bar in the empty space
- -- below the field (y=68 to y=127)
- local iy=72
- rectfill(0,68,127,127,0)
+function draw_bottom_panel()
+ -- everything below field: y=64 to y=127
+ -- layout:
+ -- y=64-69: progress bar
+ -- y=71-82: inventory slots (5)
+ -- y=84-89: description or end btn
+ -- y=91-97: status line
 
- -- label
- print("\f6power coins:",2,69)
- print("\f6\x83\x84sel \x91use",70,69)
+ rectfill(0,64,127,127,0)
 
- -- draw 5 slots
- for i=1,inv_max do
-  local sx=4+(i-1)*25
-  local sy=iy
-
-  -- slot bg
-  local sel=i==inv_sel
-  rectfill(sx,sy,sx+22,sy+18,sel and 1 or 0)
-  rect(sx,sy,sx+22,sy+18,sel and 7 or 5)
-
-  if i<=#inv then
-   local item=inv[i]
-   -- draw coin icon
-   draw_coin_at(sx+11,sy+7,item.type)
-   -- name
-   local nm=spc_names[item.type]
-   print(nm,sx+1,sy+13,spc_cols[item.type])
-  else
-   -- empty slot
-   print("-",sx+10,sy+8,5)
-  end
- end
-
- -- selected description
- if inv_sel>0 and inv_sel<=#inv then
-  local item=inv[inv_sel]
-  local d=spc_descs[item.type]
-  print(d,2,iy+22,7)
- end
-
- -- round info
- local pct=flr(round_score*100/target)
- print("\f6target:",2,iy+30)
- -- progress bar
- rectfill(38,iy+30,120,iy+35,1)
- local bw=min(82,flr(82*round_score/target))
+ -- progress bar (y=64-69)
+ rectfill(1,64,126,69,1)
+ local bw=min(124,flr(124*round_score/target))
  if bw>0 then
   local bc=round_score>=target and 11 or 8
-  rectfill(38,iy+30,38+bw,iy+35,bc)
+  rectfill(2,65,2+bw,68,bc)
  end
- print(round_score.."/"..target,42,iy+31,7)
+ local stxt=round_score.."/"..target
+ print(stxt,64-#stxt*2,65,7)
 
- -- gold display
- print("\fagold:"..gold,2,iy+39)
- print("\f6#"..#coins.." on field",50,iy+39)
-
- -- round status
- if round_score>=target then
-  if t%40<25 then
-   print("\fbtarget reached!",30,iy+47)
+ -- inventory slots (y=71-82)
+ -- 5 slots, each 24px wide, 11px tall
+ print("\f6\x83\x84",1,72)
+ for i=1,inv_max do
+  local sx=10+(i-1)*22
+  local sy=71
+  local sel=i==inv_sel
+  rectfill(sx,sy,sx+19,sy+11,
+   sel and 1 or 0)
+  rect(sx,sy,sx+19,sy+11,
+   sel and 7 or 5)
+  if i<=#inv then
+   local item=inv[i]
+   draw_coin_at(sx+10,sy+5,item.type)
+  else
+   pset(sx+10,sy+5,5)
   end
+ end
+ print("\f6\x91",120,72)
+
+ -- description or end-round btn (y=84)
+ if end_round_btn then
+  local bcol=end_round_sel and 11 or 6
+  rectfill(36,84,91,93,
+   end_round_sel and 3 or 1)
+  rect(36,84,91,93,bcol)
+  print("end round\x91",39,87,bcol)
+ elseif inv_sel>0 and inv_sel<=#inv then
+  local item=inv[inv_sel]
+  print(spc_names[item.type],2,85,
+   spc_cols[item.type])
+  print(spc_descs[item.type],2,92,6)
+ end
+
+ -- status line (y=98)
+ print("\f6#"..#coins.." on field",2,99)
+ if round_score>=target and t%40<25 then
+  print("\fbtarget reached!",50,99)
  end
 end
 
 function draw_shop()
  cls(0)
- -- shop header
- rectfill(0,0,127,12,1)
- print("\f7cat's shop",36,2)
- print("\f6round "..round.." complete!",28,8)
+ -- header (y=0-11)
+ rectfill(0,0,127,11,1)
+ print("\f7cat's shop",36,1)
+ print("\f6round "..round.." clear!",32,7)
 
- -- gold display
- print("\fagold: "..gold,4,18)
- print("\f6inventory: "..#inv.."/"..inv_max,60,18)
+ -- gold + inv (y=13)
+ print("\fagold:"..gold,4,14)
+ print("\f6bag:"..#inv.."/"..inv_max,70,14)
 
- -- items
+ -- items: 4 rows, 18px each (y=21-92)
  for i=1,#shop_items do
   local item=shop_items[i]
-  local y=26+(i-1)*20
+  local iy=21+(i-1)*18
   local sel=i==shop_sel
-  -- bg
-  rectfill(4,y,123,y+17,sel and 1 or 0)
-  rect(4,y,123,y+17,sel and 7 or 5)
-
-  -- coin icon
-  draw_coin_at(14,y+6,item.type)
-
-  -- name
+  rectfill(4,iy,123,iy+15,sel and 1 or 0)
+  rect(4,iy,123,iy+15,sel and 7 or 5)
+  draw_coin_at(14,iy+5,item.type)
   local nm=spc_names[item.type]
   local col=item.sold and 5 or spc_cols[item.type]
-  print(nm,24,y+2,col)
-
-  -- desc
-  print(spc_descs[item.type],24,y+9,item.sold and 5 or 6)
-
-  -- cost
+  print(nm,24,iy+1,col)
+  print(spc_descs[item.type],24,iy+8,
+   item.sold and 5 or 6)
   if item.sold then
-   print("sold",100,y+5,5)
+   print("sold",100,iy+4,5)
   else
-   print("g"..item.cost,100,y+5,
+   print("g"..item.cost,100,iy+4,
     gold>=item.cost and 10 or 8)
   end
  end
 
- -- continue button
- local cy=26+#shop_items*20
+ -- continue button (y=93-104)
+ local cy=93
  local sel=shop_sel==#shop_items+1
- rectfill(30,cy,97,cy+12,sel and 3 or 1)
- rect(30,cy,97,cy+12,sel and 7 or 5)
- print("continue \x8e",38,cy+3,sel and 7 or 6)
+ rectfill(30,cy,97,cy+10,sel and 3 or 1)
+ rect(30,cy,97,cy+10,sel and 7 or 5)
+ print("continue \x8e",38,cy+2,sel and 7 or 6)
 
- -- controls
- print("\f6\x83\x84 select  \x8e buy",20,120)
+ -- controls (y=118)
+ print("\f6\x83\x84 select  \x8e buy",20,118)
 end
 
 function draw_gameover()
