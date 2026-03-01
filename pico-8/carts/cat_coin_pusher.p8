@@ -20,16 +20,16 @@ t=0
 fl=10      -- field left
 fr=118     -- field right
 ft=16      -- field top (back wall)
-fb=104     -- field bottom (player edge)
+fb=60      -- field bottom (player edge)
 fw=fr-fl   -- field width
 fh=fb-ft   -- field height
 
 -- pusher (wide plate)
 push={
- y=28,        -- current y of front edge
- h=16,        -- pusher height
- min_y=26,    -- closest to wall (retracted)
- max_y=50,    -- furthest from wall (extended)
+ y=24,        -- current y of front edge
+ h=10,        -- pusher height
+ min_y=22,    -- closest to wall (retracted)
+ max_y=38,    -- furthest from wall (extended)
  dir=1,       -- 1=pushing forward, -1=retracting
  speed=0.35
 }
@@ -71,7 +71,7 @@ function make_coin(x,y)
  return {
   x=x, y=y,
   vx=0, vy=0,
-  r=3,
+  r=2.5,
   on_pusher=false
  }
 end
@@ -152,7 +152,7 @@ function start_game()
  falling={}
  particles={}
  popups={}
- push.y=28
+ push.y=24
  push.dir=1
  disp.x=64
  disp.dir=1
@@ -165,14 +165,14 @@ function seed_coins(n)
  for i=1,n do
   local attempts=0
   local placed=false
-  while not placed and attempts<30 do
-   local cx=fl+5+rnd(fw-10)
-   local cy=push.max_y+6+rnd(fb-push.max_y-10)
+  while not placed and attempts<40 do
+   local cx=fl+4+rnd(fw-8)
+   local cy=push.max_y+3+rnd(fb-push.max_y-5)
    local ok=true
    for c in all(coins) do
     local dx=cx-c.x
     local dy=cy-c.y
-    if sqrt(dx*dx+dy*dy)<6.5 then
+    if sqrt(dx*dx+dy*dy)<5 then
      ok=false
      break
     end
@@ -548,23 +548,21 @@ function draw_coin_fancy(x,y,h)
  local sx=x+1+h*0.5
  local sy=y+1+h*0.5
  -- shadow (bigger when higher)
- local sr=3+h*0.15
+ local sr=2.5+h*0.15
  circfill(sx,sy,sr,1)
 
  -- coin rim (dark edge)
- circfill(x,y,3.5,4)
+ circfill(x,y,3,4)
  -- coin body
- circfill(x,y,3,9)
- circfill(x,y,2.5,10)
+ circfill(x,y,2.5,9)
+ circfill(x,y,2,10)
 
  -- fish design
  line(x-1,y,x+1,y,12)
- pset(x-2,y-1,12)
- pset(x-2,y+1,12)
+ pset(x-2,y,12)
  pset(x+2,y,12)
 
  -- shine
- pset(x-1,y-2,7)
  pset(x-1,y-1,7)
 end
 
@@ -597,7 +595,7 @@ function draw_play()
 
  -- draw all coins (shadows first pass)
  for c in all(coins) do
-  circfill(c.x+1,c.y+1,3,1)
+  circfill(c.x+1,c.y+1,2.5,1)
  end
  -- then coins on top
  for c in all(coins) do
@@ -624,13 +622,13 @@ function draw_play()
    local h=fc.height
    local sx=fc.x+1+h*0.4
    local sy=fc.y+1+h*0.4
-   local sr=3+h*0.2
+   local sr=2.5+h*0.2
    -- shadow gets fainter
    if fc.life>15 then
     circfill(sx,sy,sr,1)
    end
    -- coin shrinks as it falls away
-   local cr=max(1,3-h*0.1)
+   local cr=max(1,2.5-h*0.1)
    circfill(fc.x,fc.y-h,cr+0.5,4)
    circfill(fc.x,fc.y-h,cr,10)
    pset(fc.x-1,fc.y-h-1,7)
@@ -687,21 +685,15 @@ function draw_pusher()
  local bw=(fr-fl-8)/5
  for i=1,4 do
   local bx=fl+4+i*bw+bw/2
-  local by=py-3
-  circfill(bx,by,2.5,8)
-  circfill(bx,by,1.5,14)
+  local by=py-2
+  circfill(bx,by,2,8)
+  circfill(bx,by,1,14)
  end
 
  -- big central pad
  local cx=(fl+fr)/2
- circfill(cx,ptop+push.h*0.4,3.5,8)
- circfill(cx,ptop+push.h*0.4,2.5,14)
-
- -- fur dots
- for i=0,6 do
-  local fx=fl+8+i*((fr-fl-16)/6)
-  pset(fx,ptop+3,9)
- end
+ circfill(cx,ptop+push.h*0.4,2.5,8)
+ circfill(cx,ptop+push.h*0.4,1.5,14)
 
  -- front edge highlight
  line(fl+3,py,fr-3,py,10)
