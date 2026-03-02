@@ -9,21 +9,24 @@ __lua__
 -------------------------------
 spc_names={"bomb","whirl","b.hole",
  "magnet","gold","multi",
- "quake","ice","clone","crown"}
-spc_cols={8,12,0,12,10,9,4,12,11,10}
-spc_costs={30,25,40,20,15,35,30,25,20,45}
+ "quake","ice","clone","crown",
+ "cash"}
+spc_cols={8,12,0,12,10,9,4,12,11,10,14}
+spc_costs={30,25,40,20,15,35,30,25,20,45,50}
 spc_descs={
  "blast coins to edge",
  "spin coins to center",
  "suck then release",
  "pull coins together",
  "worth 5x when scored",
- "2x score 3 seconds",
+ "2x score 6 seconds",
  "shake all coins",
- "freeze pusher forward",
+ "freeze pusher 5 sec",
  "spawn 5 extra coins",
- "3x combo 5 seconds"
+ "3x combo 8 seconds",
+ "score nearby coins!"
 }
+num_specials=11
 
 -------------------------------
 -- globals
@@ -104,12 +107,17 @@ cat_ear_twitch=0
 -------------------------------
 -- helpers
 -------------------------------
+-- buy coins cost
+buy_coin_cost=5
+buy_coin_amt=5
+
 function make_coin(x,y,stype)
  return {
   x=x,y=y,vx=0,vy=0,
   r=2.5,on_pusher=false,
   stype=stype or 0,
-  activated=false,val=1
+  activated=false,val=1,
+  fuse=0 -- >0 means waiting to activate
  }
 end
 
@@ -239,21 +247,21 @@ function activate_special(c)
  c.activated=true
  local st=c.stype
 
- if st==1 then -- bomb
+ if st==1 then -- bomb (stronger)
   for o in all(coins) do
    if o!=c then
     local d=cdist(c,o)
-    if d<20 then
+    if d<28 then
      local nx=(o.x-c.x)/(d+0.1)
      local ny=(o.y-c.y)/(d+0.1)
-     o.vx+=nx*3
-     o.vy+=ny*3
+     o.vx+=nx*4
+     o.vy+=ny*4
     end
    end
   end
   for i=1,12 do
-   make_particle(c.x,c.y,8,20)
-   make_particle(c.x,c.y,10,15)
+   make_particle(c.x,c.y,8,25)
+   make_particle(c.x,c.y,10,20)
   end
   sfx(5)
  elseif st==2 then -- whirlpool
@@ -306,9 +314,9 @@ function activate_special(c)
   sfx(3)
  elseif st==5 then -- goldfish
   -- passive
- elseif st==6 then -- multiplier
+ elseif st==6 then -- multiplier (6 sec)
   score_mult=2
-  mult_timer=180
+  mult_timer=360
   for i=1,6 do
    make_particle(c.x,c.y,9,20)
   end
@@ -322,8 +330,8 @@ function activate_special(c)
    make_particle(c.x,c.y,4,15)
   end
   sfx(5)
- elseif st==8 then -- ice
-  push.frozen=180
+ elseif st==8 then -- ice (5 sec)
+  push.frozen=300
   for i=1,8 do
    make_particle(c.x,c.y,12,20)
    make_particle(c.x,c.y,7,15)
@@ -342,13 +350,48 @@ function activate_special(c)
    make_particle(c.x,c.y,11,15)
   end
   sfx(3)
- elseif st==10 then -- crown
+ elseif st==10 then -- crown (8 sec)
   combo_mult=3
-  combo_buff_timer=300
+  combo_buff_timer=480
   for i=1,8 do
    make_particle(c.x,c.y,10,20)
   end
   sfx(4)
+ elseif st==11 then -- cashout
+  -- instantly score nearby coins!
+  local scored_list={}
+  for o in all(coins) do
+   if o!=c then
+    local d=cdist(c,o)
+    if d<22 then
+     add(scored_list,o)
+    end
+   end
+  end
+  for o in all(scored_list) do
+   -- teleport past scoring edge
+   o.y=fb+5
+   o.on_pusher=false
+   for i=1,3 do
+    make_particle(o.x,o.y-5,14,20)
+   end
+  end
+  for i=1,10 do
+   make_particle(c.x,c.y,14,25)
+   make_particle(c.x,c.y,7,20)
+  end
+  sfx(4)
+ end
+end
+
+-- trigger all fused specials early
+function trigger_all_fused()
+ for c in all(coins) do
+  if c.stype>0 and c.fuse>0
+     and not c.activated then
+   c.fuse=0
+   activate_special(c)
+  end
  end
 end
 
@@ -359,22 +402,32 @@ function open_spinner(cmult)
  state="spinner"
  t=0
  spin_mult=max(1,flr(cmult))
- -- 3 random prizes
+ -- 3 random prizes with more coins
  spin_items={}
- -- prize 1: extra coins
+ -- prize 1: big coin bonus
+ local camt=15*spin_mult
  add(spin_items,{
   kind="coins",
-  label="+"..5*spin_mult.." coins",
+  label="+"..camt.." coins",
   col=10,
-  amt=5*spin_mult})
- -- prize 2: gold
- add(spin_items,{
-  kind="gold",
-  label="+"..10*spin_mult.." gold",
-  col=9,
-  amt=10*spin_mult})
+  amt=camt})
+ -- prize 2: gold or even more coins
+ if rnd(1)<0.5 then
+  add(spin_items,{
+   kind="gold",
+   label="+"..10*spin_mult.." gold",
+   col=9,
+   amt=10*spin_mult})
+ else
+  local c2=10*spin_mult
+  add(spin_items,{
+   kind="coins",
+   label="+"..c2.." coins",
+   col=10,
+   amt=c2})
+ end
  -- prize 3: random special
- local rs=flr(rnd(10))+1
+ local rs=flr(rnd(num_specials))+1
  add(spin_items,{
   kind="special",
   label=spc_names[rs].." coin",
@@ -537,6 +590,15 @@ function update_play()
   end
  end
 
+ -- down: buy coins with gold
+ if btnp(3) and gold>=buy_coin_cost then
+  gold-=buy_coin_cost
+  coins_left+=buy_coin_amt
+  -- also trigger all fused specials!
+  trigger_all_fused()
+  sfx(0)
+ end
+
  -- update dropping
  for dc in all(dropping) do
   dc.y+=(dc.target_y-dc.y)*0.3
@@ -551,7 +613,19 @@ function update_play()
    add(coins,c)
    del(dropping,dc)
    sfx(2)
+   -- specials get a 2-second fuse
+   -- (goldfish is passive, no fuse)
    if c.stype>0 and c.stype!=5 then
+    c.fuse=120
+   end
+  end
+ end
+
+ -- update fuse timers on field
+ for c in all(coins) do
+  if c.fuse>0 then
+   c.fuse-=1
+   if c.fuse<=0 then
     activate_special(c)
    end
   end
@@ -610,7 +684,7 @@ function gen_shop_items()
  for i=1,3 do
   local st
   repeat
-   st=flr(rnd(10))+1
+   st=flr(rnd(num_specials))+1
   until not used[st]
   used[st]=true
   add(shop_items,{
@@ -940,6 +1014,11 @@ function draw_coin_at(x,y,stype)
   circfill(x,y,2,9)
   pset(x-1,y-2,10) pset(x,y-2,10)
   pset(x+1,y-2,10)
+ elseif stype==11 then -- cashout
+  circfill(x,y,2.5,14)
+  circfill(x,y,2,15)
+  pset(x,y,14)
+  pset(x-1,y,7) pset(x+1,y,7)
  end
  pset(x-1,y-1,7)
 end
@@ -966,6 +1045,17 @@ function draw_play()
  end
  for c in all(coins) do
   draw_coin_at(c.x,c.y,c.stype)
+  -- fuse countdown glow
+  if c.fuse>0 then
+   local pulse=sin(t/8)*2+4
+   circ(c.x,c.y,pulse,
+    spc_cols[c.stype] or 7)
+   -- countdown dots
+   local dots=flr(c.fuse/30)
+   for d=0,min(dots,3) do
+    pset(c.x-2+d*2,c.y-5,7)
+   end
+  end
  end
  for dc in all(dropping) do
   draw_coin_at(dc.x,dc.y,dc.stype)
@@ -1151,10 +1241,14 @@ function draw_bottom_panel()
   print(spc_descs[item.type],2,92,6)
  end
 
- -- status (y=98)
- print("\f6#"..#coins.." on field",2,99)
+ -- status + buy coins (y=98)
+ print("\f6#"..#coins,2,99)
+ -- buy coins prompt
+ if gold>=buy_coin_cost then
+  print("\f6\x83:buy "..buy_coin_amt.."coins g"..buy_coin_cost,30,99)
+ end
  if round_score>=target and t%40<25 then
-  print("\fbtarget reached!",50,99)
+  print("\fbtarget!",96,99)
  end
 end
 
