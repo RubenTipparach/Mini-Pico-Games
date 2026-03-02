@@ -162,8 +162,10 @@ function collide_coins(a,b)
  end
 end
 
+max_rounds=10
+
 function get_target(r)
- return 80+r*60+r*r*10
+ return flr(150*1.5^(r-1))
 end
 
 -------------------------------
@@ -198,7 +200,7 @@ function start_round()
  combo_best=0
  total_scored=0
  target=get_target(round)
- coins_left=30+round*5
+ coins_left=flr(30*1.3^(round-1))
  coins={}
  dropping={}
  falling={}
@@ -237,6 +239,24 @@ function seed_coins(n)
    att+=1
   end
  end
+end
+
+function continue_round()
+ state="play" t=0
+ round_score=0
+ combo=0
+ combo_timer=0
+ combo_best=0
+ total_scored=0
+ target=get_target(round)
+ coins_left=flr(30*1.3^(round-1))
+ dropping={}
+ falling={}
+ particles={}
+ popups={}
+ end_round_btn=false
+ end_round_sel=false
+ spinner_pending=false
 end
 
 -------------------------------
@@ -509,6 +529,8 @@ function _update60()
   update_spinner()
  elseif state=="gameover" then
   update_gameover()
+ elseif state=="victory" then
+  update_victory()
  end
 
  for p in all(particles) do
@@ -670,9 +692,12 @@ end
 
 function finish_round()
  if round_score>=target then
-  gold+=flr(round_score/10)
-  gold+=round*5
-  open_shop()
+  gold+=flr(round_score*100/target)
+  if round>=max_rounds then
+   game_victory()
+  else
+   open_shop()
+  end
  else
   game_over()
  end
@@ -741,7 +766,7 @@ function update_shop()
   else
    -- continue
    round+=1
-   start_round()
+   continue_round()
   end
  end
 end
@@ -861,7 +886,6 @@ function check_scored()
    round_score+=val
    total_scored+=1
    make_popup(c.x,fb-8,val)
-   gold+=max(1,flr(val/20))
 
    add(falling,{x=c.x,y=fb+2,
     vy=0.8+rnd(0.5),
@@ -897,6 +921,26 @@ function update_gameover()
  end
 end
 
+function game_victory()
+ state="victory" t=0
+ local total=0
+ for r=1,max_rounds do
+  total+=get_target(r)
+ end
+ total+=round_score-target
+ if total>high_score then
+  high_score=total
+  dset(0,high_score)
+ end
+ sfx(4)
+end
+
+function update_victory()
+ if t>60 and (btnp(4) or btnp(5)) then
+  start_title()
+ end
+end
+
 -------------------------------
 -- drawing
 -------------------------------
@@ -912,6 +956,8 @@ function _draw()
   draw_spinner()
  elseif state=="gameover" then
   draw_gameover()
+ elseif state=="victory" then
+  draw_victory()
  end
 end
 
@@ -1378,6 +1424,26 @@ function draw_gameover()
   round_score>=target and 11 or 8)
  if high_score>0 then
   print("best: "..high_score,40,92,5)
+ end
+ if t>60 and t%60<40 then
+  print("\x8e\x91 continue",32,112,7)
+ end
+end
+
+function draw_victory()
+ cls(0)
+ for i=0,60 do
+  local sx=(i*23+t*0.5)%128
+  local sy=(i*41+t*0.2)%128
+  pset(sx,sy,({10,9,11,7})[i%4+1])
+ end
+ draw_big_cat(64,18)
+ print("you win!",40,44,0)
+ print("you win!",39,43,11)
+ print("all 10 rounds clear!",16,56,10)
+ print("total gold: "..gold,32,70,9)
+ if high_score>0 then
+  print("best: "..high_score,40,82,5)
  end
  if t>60 and t%60<40 then
   print("\x8e\x91 continue",32,112,7)
