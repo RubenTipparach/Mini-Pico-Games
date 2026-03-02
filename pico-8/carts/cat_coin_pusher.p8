@@ -61,6 +61,8 @@ gold=0
 coins_left=0
 total_scored=0
 high_score=0
+score_per_gold=1
+round_gold_given=0
 
 -- buffs
 score_mult=1
@@ -201,6 +203,8 @@ function start_round()
  total_scored=0
  target=get_target(round)
  coins_left=flr(30*1.3^(round-1))
+ score_per_gold=max(1,flr(target/10))
+ round_gold_given=0
  coins={}
  dropping={}
  falling={}
@@ -250,6 +254,8 @@ function continue_round()
  total_scored=0
  target=get_target(round)
  coins_left=flr(30*1.3^(round-1))
+ score_per_gold=max(1,flr(target/10))
+ round_gold_given=0
  dropping={}
  falling={}
  particles={}
@@ -692,7 +698,6 @@ end
 
 function finish_round()
  if round_score>=target then
-  gold+=flr(round_score*100/target)
   if round>=max_rounds then
    game_victory()
   else
@@ -885,6 +890,12 @@ function check_scored()
    val=flr(val*score_mult)
    round_score+=val
    total_scored+=1
+   local new_g=flr(round_score/score_per_gold)
+   local dg=new_g-round_gold_given
+   if dg>0 then
+    gold+=dg
+    round_gold_given=new_g
+   end
    make_popup(c.x,fb-8,val)
 
    add(falling,{x=c.x,y=fb+2,
