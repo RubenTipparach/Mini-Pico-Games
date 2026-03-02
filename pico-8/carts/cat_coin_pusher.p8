@@ -203,7 +203,7 @@ function start_round()
  total_scored=0
  target=get_target(round)
  coins_left=flr(30*1.3^(round-1))
- score_per_gold=max(1,flr(target/10))
+ score_per_gold=max(1,-flr(-target/100))
  round_gold_given=0
  coins={}
  dropping={}
@@ -254,7 +254,7 @@ function continue_round()
  total_scored=0
  target=get_target(round)
  coins_left=flr(30*1.3^(round-1))
- score_per_gold=max(1,flr(target/10))
+ score_per_gold=max(1,-flr(-target/100))
  round_gold_given=0
  dropping={}
  falling={}
