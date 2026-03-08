@@ -25,9 +25,15 @@ p={
  gold=10,
  atk=2,def=1,
  floor=1,
- x=3,y=3,
+ x=3.5,y=3.5,
+ ang=0,
  inn_buff=0
 }
+
+-- raycaster config
+fov=0.166 -- ~60 degrees in pico turns
+num_rays=64
+view_h=100 -- viewport height
 
 -- card definitions
 -- type: 1=atk,2=heal,3=shield,4=buff
@@ -338,6 +344,9 @@ function draw_stats_bar()
  print("f:"..p.floor,108,122,7)
 end
 
+-- depth buffer for sprites
+zbuf={}
+
 -->8
 -- dungeon generation & exploration
 
@@ -377,7 +386,6 @@ function gen_dungeon()
   local cx2=r2.x+flr(r2.w/2)
   local cy2=r2.y+flr(r2.h/2)
 
-  -- horizontal then vertical
   local x=cx1
   while x~=cx2 do
    dmap[cy1][x]=0
@@ -390,13 +398,14 @@ function gen_dungeon()
   end
  end
 
- -- place player in first room
- p.x=rooms[1].x+flr(rooms[1].w/2)
- p.y=rooms[1].y+flr(rooms[1].h/2)
+ -- place player in first room center
+ p.x=rooms[1].x+rooms[1].w/2
+ p.y=rooms[1].y+rooms[1].h/2
+ p.ang=0
 
  -- place exit stairs in last room
  local lr=rooms[#rooms]
- dmap[lr.y+flr(lr.h/2)][lr.x+flr(lr.w/2)]=3 -- stairs
+ dmap[lr.y+flr(lr.h/2)][lr.x+flr(lr.w/2)]=3
 
  -- place enemies (2=enemy)
  for i=2,#rooms-1 do
@@ -409,29 +418,92 @@ function gen_dungeon()
  end
 
  -- place town exit at first room edge
- dmap[rooms[1].y][rooms[1].x]=4 -- town portal
+ dmap[rooms[1].y][rooms[1].x]=4
+end
+
+-- check if map tile is solid
+function is_wall(x,y)
+ local mx=flr(x)
+ local my=flr(y)
+ if mx<0 or mx>=dw or my<0 or my>=dh then
+  return true
+ end
+ return dmap[my][mx]==1
+end
+
+-- get map tile at world pos
+function get_tile(x,y)
+ local mx=flr(x)
+ local my=flr(y)
+ if mx<0 or mx>=dw or my<0 or my>=dh then
+  return 1
+ end
+ return dmap[my][mx]
 end
 
 function update_dungeon()
+ local spd=0.04
+ local tspd=0.01
+
+ -- turn left/right
+ if btn(0) then p.ang-=tspd end
+ if btn(1) then p.ang+=tspd end
+
+ -- move forward/back
+ local dx=cos(p.ang)
+ local dy=sin(p.ang)
  local nx,ny=p.x,p.y
- if btnp(0) then nx-=1 end
- if btnp(1) then nx+=1 end
- if btnp(2) then ny-=1 end
- if btnp(3) then ny+=1 end
+ if btn(2) then
+  nx+=dx*spd
+  ny+=dy*spd
+ end
+ if btn(3) then
+  nx-=dx*spd
+  ny-=dy*spd
+ end
 
- -- check bounds
- if nx>=0 and nx<dw and ny>=0 and ny<dh then
-  local tile=dmap[ny][nx]
-  if tile~=1 then -- not wall
-   p.x=nx
-   p.y=ny
+ -- collision with margin
+ local m=0.2
+ if not is_wall(nx+m,p.y+m) and
+    not is_wall(nx-m,p.y+m) and
+    not is_wall(nx+m,p.y-m) and
+    not is_wall(nx-m,p.y-m) then
+  p.x=nx
+ end
+ if not is_wall(p.x+m,ny+m) and
+    not is_wall(p.x-m,ny+m) and
+    not is_wall(p.x+m,ny-m) and
+    not is_wall(p.x-m,ny-m) then
+  p.y=ny
+ end
 
-   if tile==2 then
-    -- enemy encounter
-    dmap[ny][nx]=0
+ -- check current tile
+ local tile=get_tile(p.x,p.y)
+ if tile==2 then
+  dmap[flr(p.y)][flr(p.x)]=0
+  start_combat()
+ elseif tile==3 then
+  p.floor+=1
+  if p.floor>3 then
+   go_to(st_victory)
+  else
+   sfx(1)
+   gen_dungeon()
+  end
+ elseif tile==4 then
+  go_to(st_town)
+ end
+
+ -- x button = interact nearby
+ if btnp(4) then
+  local fx=flr(p.x+dx*0.8)
+  local fy=flr(p.y+dy*0.8)
+  if fx>=0 and fx<dw and fy>=0 and fy<dh then
+   local ft=dmap[fy][fx]
+   if ft==2 then
+    dmap[fy][fx]=0
     start_combat()
-   elseif tile==3 then
-    -- stairs - next floor
+   elseif ft==3 then
     p.floor+=1
     if p.floor>3 then
      go_to(st_victory)
@@ -439,8 +511,7 @@ function update_dungeon()
      sfx(1)
      gen_dungeon()
     end
-   elseif tile==4 then
-    -- return to town
+   elseif ft==4 then
     go_to(st_town)
    end
   end
@@ -452,63 +523,303 @@ function update_dungeon()
  end
 end
 
+-- raycaster draw
 function draw_dungeon()
- -- camera centered on player
- local cx=p.x-7
- local cy=p.y-6
+ -- ceiling
+ rectfill(0,0,127,49,0)
+ -- floor
+ rectfill(0,50,127,view_h-1,1)
 
- for sy=0,13 do
-  for sx=0,15 do
-   local mx=cx+sx
-   local my=cy+sy
-   local px=sx*8
-   local py=sy*8
+ -- cast rays
+ zbuf={}
+ for i=0,num_rays-1 do
+  local ray_ang=p.ang-fov/2+fov*i/num_rays
+  cast_ray(i,ray_ang)
+ end
 
-   if mx>=0 and mx<dw and my>=0 and my<dh then
-    local t=dmap[my][mx]
-    if t==1 then
-     -- wall
-     rectfill(px,py,px+7,py+7,5)
-     rect(px,py,px+7,py+7,1)
-    elseif t==0 then
-     -- floor
-     rectfill(px,py,px+7,py+7,1)
-     if (mx+my)%2==0 then
-      pset(px+3,py+3,2)
-     end
-    elseif t==2 then
-     -- enemy
-     rectfill(px,py,px+7,py+7,1)
-     print("!",px+2,py+1,8)
-    elseif t==3 then
-     -- stairs
-     rectfill(px,py,px+7,py+7,1)
-     print(">",px+2,py+1,11)
-    elseif t==4 then
-     -- town portal
-     rectfill(px,py,px+7,py+7,1)
-     print("<",px+2,py+1,12)
-    end
+ -- draw sprites (enemies, stairs, portal)
+ draw_world_sprites()
+
+ -- minimap
+ draw_minimap()
+
+ -- hud
+ rectfill(0,view_h,127,127,0)
+ draw_stats_bar_fp()
+
+ -- crosshair
+ pset(63,49,7)
+ pset(64,49,7)
+ pset(63,50,7)
+ pset(64,50,7)
+end
+
+function cast_ray(col,ang)
+ local dx=cos(ang)
+ local dy=sin(ang)
+
+ -- dda raycaster
+ local mx=flr(p.x)
+ local my=flr(p.y)
+
+ local deldx=abs(1/dx) if dx==0 then deldx=32000 end
+ local deldy=abs(1/dy) if dy==0 then deldy=32000 end
+
+ local stepx,stepy
+ local sidex,sidey
+
+ if dx<0 then
+  stepx=-1
+  sidex=(p.x-mx)*deldx
+ else
+  stepx=1
+  sidex=(mx+1-p.x)*deldx
+ end
+ if dy<0 then
+  stepy=-1
+  sidey=(p.y-my)*deldy
+ else
+  stepy=1
+  sidey=(my+1-p.y)*deldy
+ end
+
+ -- step through grid
+ local hit=false
+ local side=0
+ local dist=0
+ local tile=0
+ for i=0,30 do
+  if sidex<sidey then
+   sidex+=deldx
+   mx+=stepx
+   side=0
+  else
+   sidey+=deldy
+   my+=stepy
+   side=1
+  end
+
+  if mx<0 or mx>=dw or my<0 or my>=dh then
+   hit=true
+   dist=20
+   tile=1
+   break
+  end
+
+  if dmap[my][mx]==1 then
+   hit=true
+   tile=1
+   if side==0 then
+    dist=sidex-deldx
    else
-    rectfill(px,py,px+7,py+7,0)
+    dist=sidey-deldy
+   end
+   break
+  end
+ end
+
+ if not hit then
+  dist=20
+ end
+
+ -- fix fisheye
+ local rdiff=ang-p.ang
+ dist=dist*cos(rdiff)
+ if dist<0.1 then dist=0.1 end
+
+ -- store depth
+ zbuf[col]=dist
+
+ -- wall height
+ local wh=view_h/dist
+ if wh>view_h then wh=view_h end
+ local wy1=50-wh/2
+ local wy2=50+wh/2
+
+ -- wall color based on side and distance
+ local c1,c2
+ if side==0 then
+  c1=5 c2=4
+ else
+  c1=4 c2=2
+ end
+ -- darken with distance
+ if dist>6 then c1=2 c2=1 end
+ if dist>10 then c1=1 c2=0 end
+
+ -- draw wall column (2px wide)
+ local sx=col*2
+ rectfill(sx,wy1,sx+1,wy2,c1)
+ -- top/bottom edge shading
+ if wy2-wy1>4 then
+  line(sx,wy1,sx+1,wy1,c2)
+  line(sx,wy2,sx+1,wy2,c2)
+ end
+end
+
+-- draw sprites in 3d view
+function draw_world_sprites()
+ -- collect visible sprites
+ local sprites={}
+ for y=0,dh-1 do
+  for x=0,dw-1 do
+   local t=dmap[y][x]
+   if t>=2 and t<=4 then
+    local sx=x+0.5
+    local sy=y+0.5
+    local dx=sx-p.x
+    local dy=sy-p.y
+    local dist=sqrt(dx*dx+dy*dy)
+    if dist<10 then
+     add(sprites,{
+      x=sx,y=sy,t=t,dist=dist
+     })
+    end
    end
   end
  end
 
- -- draw player
- local ppx=(p.x-cx)*8
- local ppy=(p.y-cy)*8
- rectfill(ppx+1,ppy+1,ppx+6,ppy+6,7)
- rectfill(ppx+2,ppy+2,ppx+3,ppy+3,12)
- rectfill(ppx+4,ppy+2,ppx+5,ppy+3,12)
+ -- sort by distance (far first)
+ for i=1,#sprites do
+  for j=i+1,#sprites do
+   if sprites[j].dist>sprites[i].dist then
+    sprites[i],sprites[j]=sprites[j],sprites[i]
+   end
+  end
+ end
 
- -- hud
- draw_stats_bar()
+ -- draw each sprite
+ for s in all(sprites) do
+  local dx=s.x-p.x
+  local dy=s.y-p.y
 
- -- floor label
- rectfill(0,112,55,119,0)
- print("floor "..p.floor,2,113,7)
- print("\x97:leave",60,113,6)
+  -- angle to sprite relative to view
+  local sang=atan2(dx,dy)
+  local adiff=sang-p.ang
+  -- normalize to -0.5..0.5
+  while adiff>0.5 do adiff-=1 end
+  while adiff<-0.5 do adiff+=1 end
+
+  -- check if in fov
+  if abs(adiff)<fov/2+0.02 then
+   -- screen x position
+   local scrx=64+adiff/fov*128
+
+   -- sprite size based on dist
+   local sz=view_h/(s.dist*2)
+   if sz>60 then sz=60 end
+   local sy1=50-sz/2
+   local sy2=50+sz/2
+
+   -- column range
+   local sx1=scrx-sz/2
+   local sx2=scrx+sz/2
+
+   -- draw sprite columns only if
+   -- closer than wall
+   for cx=max(0,flr(sx1)),min(127,flr(sx2)) do
+    local ri=flr(cx/2)
+    if ri>=0 and ri<num_rays then
+     if s.dist<zbuf[ri] then
+      -- draw column
+      if s.t==2 then
+       -- enemy: red blob
+       local frac=(cx-sx1)/(sx2-sx1)
+       local r=0.5-abs(frac-0.5)
+       local ch=sz*r*2
+       local cy1=50-ch/2
+       local cy2=50+ch/2
+       line(cx,cy1,cx,cy2,8)
+       -- eyes
+       if abs(frac-0.35)<0.06 or
+          abs(frac-0.65)<0.06 then
+        local ey=50-ch/4
+        pset(cx,ey,7)
+       end
+      elseif s.t==3 then
+       -- stairs: yellow
+       local frac=(cx-sx1)/(sx2-sx1)
+       if frac>0.2 and frac<0.8 then
+        line(cx,sy1+sz*0.3,cx,sy2,10)
+        -- step lines
+        for sl=0,3 do
+         local sly=sy1+sz*0.3+sl*sz/5
+         if sly<sy2 then
+          pset(cx,sly,9)
+         end
+        end
+       end
+      elseif s.t==4 then
+       -- town portal: blue glow
+       local frac=(cx-sx1)/(sx2-sx1)
+       local r=0.5-abs(frac-0.5)
+       local ch=sz*r*2
+       local cy1=50-ch/2
+       local cy2=50+ch/2
+       line(cx,cy1,cx,cy2,12)
+       if flr(time()*4)%2==0 then
+        line(cx,cy1,cx,cy2,6)
+       end
+      end
+     end
+    end
+   end
+  end
+ end
+end
+
+-- minimap in corner
+function draw_minimap()
+ local ms=2 -- pixel size per cell
+ local mx0=1
+ local my0=1
+ local range=7
+
+ rectfill(mx0-1,my0-1,
+  mx0+range*2*ms,my0+range*2*ms,0)
+
+ for dy=-range,range do
+  for dx=-range,range do
+   local wx=flr(p.x)+dx
+   local wy=flr(p.y)+dy
+   local sx=mx0+(dx+range)*ms
+   local sy=my0+(dy+range)*ms
+   if wx>=0 and wx<dw and wy>=0 and wy<dh then
+    local t=dmap[wy][wx]
+    local c=0
+    if t==0 then c=1
+    elseif t==1 then c=5
+    elseif t==2 then c=8
+    elseif t==3 then c=10
+    elseif t==4 then c=12
+    end
+    rectfill(sx,sy,sx+ms-1,sy+ms-1,c)
+   end
+  end
+ end
+
+ -- player dot
+ local px=mx0+range*ms
+ local py=my0+range*ms
+ rectfill(px,py,px+ms-1,py+ms-1,7)
+ -- direction indicator
+ local ddx=cos(p.ang)*3
+ local ddy=sin(p.ang)*3
+ pset(px+ddx,py+ddy,11)
+end
+
+function draw_stats_bar_fp()
+ rectfill(0,view_h,127,127,0)
+ rectfill(0,view_h,127,view_h,5)
+ print("hp:"..p.hp.."/"..p.maxhp,
+  2,view_h+4,8)
+ print("mp:"..p.mp.."/"..p.maxmp,
+  2,view_h+12,12)
+ print("f:"..p.floor,42,view_h+4,7)
+ print("g:"..p.gold,42,view_h+12,10)
+ print("\x91\x94:turn",70,view_h+4,6)
+ print("\x83\x94:move",70,view_h+12,6)
+ print("\x96:leave",104,view_h+4,6)
 end
 
 -->8
