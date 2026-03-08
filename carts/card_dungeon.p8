@@ -30,10 +30,16 @@ p={
  inn_buff=0
 }
 
--- raycaster config
+-- 3d config
 fov=0.166 -- ~60 degrees in pico turns
-num_rays=64
 view_h=100 -- viewport height
+-- texture map coords (in sprite sheet tiles)
+-- wall tex: sprite 0,0 (8x8)
+-- floor tex: sprite 1,0
+-- ceil tex: sprite 2,0
+-- stairs tex: sprite 3,0
+-- portal tex: sprite 4,0
+-- enemy tex: sprite 5,0
 
 -- card definitions
 -- type: 1=atk,2=heal,3=shield,4=buff
@@ -133,6 +139,25 @@ loot_card=nil
 function _init()
  state=st_title
  init_player()
+ -- set up map cells for tline
+ -- textures sampling
+ -- map cell (0,0)=sprite 0 (wall bright)
+ -- map cell (1,0)=sprite 1 (floor)
+ -- map cell (2,0)=sprite 2 (ceiling)
+ -- map cell (3,0)=sprite 3 (stairs)
+ -- map cell (4,0)=sprite 4 (portal)
+ -- map cell (5,0)=sprite 5 (enemy)
+ -- map cell (0,1)=sprite 16 (wall dark)
+ -- sprites: 0=wall, 1=floor, 2=ceil,
+ --  3=stairs, 4=portal, 5=enemy
+ --  16=dark wall (row 2 of spritesheet)
+ mset(0,0,0)  -- wall bright
+ mset(1,0,1)  -- floor
+ mset(2,0,2)  -- ceiling
+ mset(3,0,3)  -- stairs
+ mset(4,0,4)  -- portal
+ mset(5,0,5)  -- enemy
+ mset(0,1,16) -- wall dark
 end
 
 function init_player()
@@ -347,6 +372,13 @@ end
 -- depth buffer for sprites
 zbuf={}
 
+-- dark palette for distance fog
+-- maps normal colors to darker
+dark_pal={
+ [0]=0,0,1,1,2,1,2,6,
+ 2,4,4,3,1,1,2,1
+}
+
 -->8
 -- dungeon generation & exploration
 
@@ -523,22 +555,51 @@ function update_dungeon()
  end
 end
 
--- raycaster draw
-function draw_dungeon()
- -- ceiling
- rectfill(0,0,127,49,0)
- -- floor
- rectfill(0,50,127,view_h-1,1)
+-- set palette for distance fog
+function set_fog_pal(dist)
+ if dist>8 then
+  -- very dark
+  for i=0,15 do
+   pal(i,dark_pal[dark_pal[i]],0)
+  end
+ elseif dist>4 then
+  -- dark
+  for i=0,15 do
+   pal(i,dark_pal[i],0)
+  end
+ else
+  pal()
+ end
+end
 
- -- cast rays
+-- textured 3d draw using tline
+function draw_dungeon()
+ cls(0)
+ -- enable tline pixel mode for
+ -- better precision up close
+ poke(0x5f36,0x8)
+
+ -- set map wrap to 16x16 tiles
+ poke(0x5f38,16)
+ poke(0x5f39,16)
+
+ -- draw textured floor & ceiling
+ draw_floor_ceil()
+
+ -- cast rays for walls
  zbuf={}
- for i=0,num_rays-1 do
-  local ray_ang=p.ang-fov/2+fov*i/num_rays
-  cast_ray(i,ray_ang)
+ local hfov=fov/2
+ for col=0,127 do
+  local ray_frac=(col/127)-0.5
+  local ray_ang=p.ang+ray_frac*fov
+  cast_ray_tex(col,ray_ang)
  end
 
- -- draw sprites (enemies, stairs, portal)
+ -- draw sprites
  draw_world_sprites()
+
+ -- reset palette
+ pal()
 
  -- minimap
  draw_minimap()
@@ -554,112 +615,169 @@ function draw_dungeon()
  pset(64,50,7)
 end
 
-function cast_ray(col,ang)
+-- textured floor and ceiling
+-- using horizontal tline scanlines
+function draw_floor_ceil()
+ local mid_y=50
+ local ca=cos(p.ang)
+ local sa=sin(p.ang)
+
+ for sy=mid_y+1,view_h-1 do
+  -- distance for this row
+  local rowdist=mid_y/(sy-mid_y)
+
+  -- world coords of left and right
+  -- edges of this scanline
+  local lfov=-fov/2
+  local rfov=fov/2
+
+  local ldx=cos(p.ang+lfov)
+  local ldy=sin(p.ang+lfov)
+  local rdx=cos(p.ang+rfov)
+  local rdy=sin(p.ang+rfov)
+
+  local flx=p.x+ldx*rowdist
+  local fly=p.y+ldy*rowdist
+  local frx=p.x+rdx*rowdist
+  local fry=p.y+rdy*rowdist
+
+  -- floor texture: tile (1,0)
+  -- map coords = world pos
+  -- (tiles wrap via 0x5f38)
+  set_fog_pal(rowdist)
+
+  -- floor scanline
+  tline(0,sy,127,sy,
+   flx,fly,
+   (frx-flx)/128,
+   (fry-fly)/128)
+
+  -- ceiling scanline (mirror)
+  local cy=mid_y-(sy-mid_y)
+  if cy>=0 then
+   tline(0,cy,127,cy,
+    flx+2,fly,
+    (frx-flx)/128,
+    (fry-fly)/128)
+  end
+ end
+ pal()
+end
+
+-- cast one ray and draw textured
+-- wall column using tline
+function cast_ray_tex(col,ang)
  local dx=cos(ang)
  local dy=sin(ang)
 
- -- dda raycaster
+ -- dda setup
  local mx=flr(p.x)
  local my=flr(p.y)
 
- local deldx=abs(1/dx) if dx==0 then deldx=32000 end
- local deldy=abs(1/dy) if dy==0 then deldy=32000 end
+ local ddx=abs(1/dx)
+ local ddy=abs(1/dy)
+ if dx==0 then ddx=32000 end
+ if dy==0 then ddy=32000 end
 
  local stepx,stepy
  local sidex,sidey
 
  if dx<0 then
   stepx=-1
-  sidex=(p.x-mx)*deldx
+  sidex=(p.x-mx)*ddx
  else
   stepx=1
-  sidex=(mx+1-p.x)*deldx
+  sidex=(mx+1-p.x)*ddx
  end
  if dy<0 then
   stepy=-1
-  sidey=(p.y-my)*deldy
+  sidey=(p.y-my)*ddy
  else
   stepy=1
-  sidey=(my+1-p.y)*deldy
+  sidey=(my+1-p.y)*ddy
  end
 
  -- step through grid
  local hit=false
  local side=0
  local dist=0
- local tile=0
  for i=0,30 do
   if sidex<sidey then
-   sidex+=deldx
+   sidex+=ddx
    mx+=stepx
    side=0
   else
-   sidey+=deldy
+   sidey+=ddy
    my+=stepy
    side=1
   end
 
-  if mx<0 or mx>=dw or my<0 or my>=dh then
+  if mx<0 or mx>=dw or
+     my<0 or my>=dh then
    hit=true
    dist=20
-   tile=1
    break
   end
 
   if dmap[my][mx]==1 then
    hit=true
-   tile=1
    if side==0 then
-    dist=sidex-deldx
+    dist=sidex-ddx
    else
-    dist=sidey-deldy
+    dist=sidey-ddy
    end
    break
   end
  end
 
- if not hit then
-  dist=20
- end
+ if not hit then dist=20 end
 
  -- fix fisheye
  local rdiff=ang-p.ang
  dist=dist*cos(rdiff)
  if dist<0.1 then dist=0.1 end
 
- -- store depth
  zbuf[col]=dist
 
- -- wall height
+ -- wall height on screen
  local wh=view_h/dist
- if wh>view_h then wh=view_h end
+ if wh>200 then wh=200 end
  local wy1=50-wh/2
  local wy2=50+wh/2
 
- -- wall color based on side and distance
- local c1,c2
+ -- compute texture u coordinate
+ -- (where on the wall we hit)
+ local wall_x
  if side==0 then
-  c1=5 c2=4
+  wall_x=p.y+dist*dy/cos(rdiff)
  else
-  c1=4 c2=2
+  wall_x=p.x+dist*dx/cos(rdiff)
  end
- -- darken with distance
- if dist>6 then c1=2 c2=1 end
- if dist>10 then c1=1 c2=0 end
+ wall_x=wall_x%1 -- fractional part
 
- -- draw wall column (2px wide)
- local sx=col*2
- rectfill(sx,wy1,sx+1,wy2,c1)
- -- top/bottom edge shading
- if wy2-wy1>4 then
-  line(sx,wy1,sx+1,wy1,c2)
-  line(sx,wy2,sx+1,wy2,c2)
+ -- texture column in sprite sheet
+ -- wall texture at tile (0,0)
+ -- u maps to x within the 8px tile
+ local tx=wall_x
+
+ -- apply fog palette
+ set_fog_pal(dist)
+
+ -- use darker shade for y-facing walls
+ if side==1 then
+  -- shift to dark wall tile (0,1)
+  tline(col,wy1,col,wy2,
+   tx,1,0,1/wh)
+ else
+  tline(col,wy1,col,wy2,
+   tx,0,0,1/wh)
  end
+
+ pal()
 end
 
--- draw sprites in 3d view
+-- draw billboard sprites in 3d
 function draw_world_sprites()
- -- collect visible sprites
  local sprites={}
  for y=0,dh-1 do
   for x=0,dw-1 do
@@ -667,9 +785,9 @@ function draw_world_sprites()
    if t>=2 and t<=4 then
     local sx=x+0.5
     local sy=y+0.5
-    local dx=sx-p.x
-    local dy=sy-p.y
-    local dist=sqrt(dx*dx+dy*dy)
+    local ddx=sx-p.x
+    local ddy=sy-p.y
+    local dist=sqrt(ddx*ddx+ddy*ddy)
     if dist<10 then
      add(sprites,{
       x=sx,y=sy,t=t,dist=dist
@@ -679,98 +797,67 @@ function draw_world_sprites()
   end
  end
 
- -- sort by distance (far first)
+ -- sort far to near
  for i=1,#sprites do
   for j=i+1,#sprites do
    if sprites[j].dist>sprites[i].dist then
-    sprites[i],sprites[j]=sprites[j],sprites[i]
+    sprites[i],sprites[j]=
+     sprites[j],sprites[i]
    end
   end
  end
 
- -- draw each sprite
  for s in all(sprites) do
-  local dx=s.x-p.x
-  local dy=s.y-p.y
+  local ddx=s.x-p.x
+  local ddy=s.y-p.y
 
-  -- angle to sprite relative to view
-  local sang=atan2(dx,dy)
+  local sang=atan2(ddx,ddy)
   local adiff=sang-p.ang
-  -- normalize to -0.5..0.5
   while adiff>0.5 do adiff-=1 end
   while adiff<-0.5 do adiff+=1 end
 
-  -- check if in fov
-  if abs(adiff)<fov/2+0.02 then
-   -- screen x position
+  if abs(adiff)<fov/2+0.03 then
    local scrx=64+adiff/fov*128
-
-   -- sprite size based on dist
    local sz=view_h/(s.dist*2)
-   if sz>60 then sz=60 end
+   if sz>80 then sz=80 end
+
    local sy1=50-sz/2
    local sy2=50+sz/2
-
-   -- column range
    local sx1=scrx-sz/2
    local sx2=scrx+sz/2
 
-   -- draw sprite columns only if
-   -- closer than wall
+   -- pick sprite texture tile
+   -- enemy=5,0  stairs=3,0  portal=4,0
+   local stx,sty
+   if s.t==2 then stx=5 sty=0
+   elseif s.t==3 then stx=3 sty=0
+   elseif s.t==4 then stx=4 sty=0
+   end
+
+   set_fog_pal(s.dist)
+
+   -- draw textured billboard
+   -- column by column, checking zbuf
+   local tw=sx2-sx1
+   if tw<1 then tw=1 end
    for cx=max(0,flr(sx1)),min(127,flr(sx2)) do
-    local ri=flr(cx/2)
-    if ri>=0 and ri<num_rays then
-     if s.dist<zbuf[ri] then
-      -- draw column
-      if s.t==2 then
-       -- enemy: red blob
-       local frac=(cx-sx1)/(sx2-sx1)
-       local r=0.5-abs(frac-0.5)
-       local ch=sz*r*2
-       local cy1=50-ch/2
-       local cy2=50+ch/2
-       line(cx,cy1,cx,cy2,8)
-       -- eyes
-       if abs(frac-0.35)<0.06 or
-          abs(frac-0.65)<0.06 then
-        local ey=50-ch/4
-        pset(cx,ey,7)
-       end
-      elseif s.t==3 then
-       -- stairs: yellow
-       local frac=(cx-sx1)/(sx2-sx1)
-       if frac>0.2 and frac<0.8 then
-        line(cx,sy1+sz*0.3,cx,sy2,10)
-        -- step lines
-        for sl=0,3 do
-         local sly=sy1+sz*0.3+sl*sz/5
-         if sly<sy2 then
-          pset(cx,sly,9)
-         end
-        end
-       end
-      elseif s.t==4 then
-       -- town portal: blue glow
-       local frac=(cx-sx1)/(sx2-sx1)
-       local r=0.5-abs(frac-0.5)
-       local ch=sz*r*2
-       local cy1=50-ch/2
-       local cy2=50+ch/2
-       line(cx,cy1,cx,cy2,12)
-       if flr(time()*4)%2==0 then
-        line(cx,cy1,cx,cy2,6)
-       end
-      end
-     end
+    local ri=cx
+    if ri>=0 and ri<=127 and
+       s.dist<(zbuf[ri] or 999) then
+     local frac=(cx-sx1)/tw
+     local tu=stx+frac
+     tline(cx,sy1,cx,sy2,
+      tu,sty,0,1/sz)
     end
    end
+   pal()
   end
  end
 end
 
 -- minimap in corner
 function draw_minimap()
- local ms=2 -- pixel size per cell
+ local ms=2
  local mx0=1
  local my0=1
  local range=7
@@ -784,7 +871,8 @@ function draw_minimap()
    local wy=flr(p.y)+dy
    local sx=mx0+(dx+range)*ms
    local sy=my0+(dy+range)*ms
-   if wx>=0 and wx<dw and wy>=0 and wy<dh then
+   if wx>=0 and wx<dw and
+      wy>=0 and wy<dh then
     local t=dmap[wy][wx]
     local c=0
     if t==0 then c=1
@@ -798,11 +886,10 @@ function draw_minimap()
   end
  end
 
- -- player dot
+ -- player dot + direction
  local px=mx0+range*ms
  local py=my0+range*ms
  rectfill(px,py,px+ms-1,py+ms-1,7)
- -- direction indicator
  local ddx=cos(p.ang)*3
  local ddy=sin(p.ang)*3
  pset(px+ddx,py+ddy,11)
@@ -1404,14 +1491,22 @@ function draw_victory()
 end
 
 __gfx__
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+55555555111d11d100010001a9a00a9acc1cc1cc0880088000000000000000000000000000000000000000000000000000000000000000000000000000000000
+54545454d111d11100100010a0a00a0a1cc1cc1c0088008800000000000000000000000000000000000000000000000000000000000000000000000000000000
+555555551d111d1101000100009aa900cc1cc1cc0880088000000000000000000000000000000000000000000000000000000000000000000000000000000000
+54555455111d111d100010000a9aa9a01cc1cc1c0088008800000000000000000000000000000000000000000000000000000000000000000000000000000000
+5555555511d1111d000100019a009a00c1cc1cc08800880000000000000000000000000000000000000000000000000000000000000000000000000000000000
+545454541111d11d001000100a000a00cc1cc1cc0088008800000000000000000000000000000000000000000000000000000000000000000000000000000000
+555555551d11111d010001009a00a900c1cc1cc08800880000000000000000000000000000000000000000000000000000000000000000000000000000000000
+54545454111d11d110001000a9a0a9a01cc1cc1c0088008800000000000000000000000000000000000000000000000000000000000000000000000000000000
+22222222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+21212121000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+22222222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+21222122000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+22222222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+21212121000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+22222222000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+21212121000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 000100001505015050150501505000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000200002405024050280502b050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
